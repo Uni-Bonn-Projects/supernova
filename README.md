@@ -6,6 +6,8 @@ Universität: Rheinische Friedrich-Wilhelms-Universität Bonn
 Modul: BA-INF 105 - Einführung in die Computergrafik und Visualisierung
 Semester: SS26
 
+Die Idee ist [hier](./doc/idee/Supernova.excalidraw.png) skizziert.
+
 ## Dev environment mit devenv
 
 > Läd alle Tools und Bibliotheken temporär herunter und erstellt temporär ein
