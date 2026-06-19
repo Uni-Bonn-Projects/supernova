@@ -1,0 +1,11 @@
+walk = "git"
+
+[formatter.cpp]
+command = "clang-format"
+options = ["-i"]
+includes = ["*.cpp", "*.hpp"]
+
+[formatter.cmake-format]
+command = "cmake-format"
+options = ["--in-place"]
+includes = ["*.cmake", "CMakeLists.txt"]
