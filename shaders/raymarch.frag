@@ -1,0 +1,243 @@
+#version 330 core
+
+in vec3 viewDir;
+out vec3 fragColor;
+
+uniform uint uView = 0u;
+uniform vec3 uCameraPosition;
+uniform float uFocalLength;
+uniform float uTime;
+
+uniform vec3 uLightDir = normalize(vec3(1.0));
+uniform vec3 uLightColor = vec3(1.0);
+uniform vec3 uSkyColor = vec3(0.1, 0.3, 0.6);
+uniform float uAmbient = 0.3;
+uniform float uNear = 0.01;
+uniform float uFar = 10000.0;
+uniform int uSteps = 100;
+uniform float uEpsilon = 0.0001;
+uniform float uNormalEps = 0.0001;
+
+const float Inf = 1.0 / 0.0;
+const float NaN = 0.0 / 0.0;
+const float PI = 3.1415926;
+
+// everything in meters
+const float oldmanHeight = 100000.0;
+const float oldmanWidth = 200000.0;
+const float oldmanBottomWidth = 50000.0;
+const float oldmanSectionHeight = 10000.0;
+const float oldmanSectionWidth = 50000.0;
+
+const int SKY_ID = 0;
+const int OLDMAN_ID = 1;
+const int BOX_ID = 2;
+
+// begin: structs
+
+/* Struct to hold the signed distance and ID of the nearest object */
+struct SD {
+  float dist;
+  int ID;
+};
+
+struct Intersection {
+  float depth; // Current depth on the ray
+  vec3 pos; // Current position on the ray
+  int ID; // ID of the closest object
+  int steps; // Number of steps taken
+};
+
+// end: structs
+
+SD sdUnion(SD a, SD b) {
+  return a.dist < b.dist ? a : b;
+}
+
+float degToRad(float deg) {
+  return deg * (PI / 180.0);
+}
+
+vec3 rotateY(vec3 pos, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+
+  mat3 m = mat3(
+      vec3(c, 0.0, -s), // column 0
+      vec3(0.0, 1.0, 0.0), // column 1
+      vec3(s, 0.0, c) // column 2
+    );
+  return m * pos;
+}
+
+// begin: boolean operators
+
+float intersectSDF(float distA, float distB) {
+  return max(distA, distB);
+}
+
+float unionSDF(float distA, float distB) {
+  return min(distA, distB);
+}
+
+float differenceSDF(float distA, float distB) {
+  return max(distA, -distB);
+}
+
+// end: boolean operators
+
+// begin: objects
+
+float sdSphere(vec3 pos, float radius) {
+  return length(pos) - radius;
+}
+
+float sdBox(vec3 pos, vec3 size) {
+  vec3 q = abs(pos) - size;
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+float sdEllipsoid(vec3 pos, vec3 radius) {
+  float k0 = length(pos / radius);
+  float k1 = length(pos / radius / radius);
+  return k0 * (k0 - 1.0) / k1;
+}
+
+// end: objects
+
+// begin: scene construction
+
+float constructOldManSection(vec3 rayPos, vec3 spawnPos, float angle) {
+  // relative to spawnPos
+  vec3 offset = oldmanWidth * vec3(cos(angle), 0.0, sin(angle));
+
+  vec3 pos = rayPos + spawnPos + offset;
+  return sdBox(
+    rotateY(pos, angle),
+    vec3(oldmanSectionWidth, oldmanSectionHeight, oldmanSectionWidth)
+  );
+}
+
+SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
+  float main_body = sdSphere(rayPos + spawnPos, oldmanWidth);
+  main_body = differenceSDF(
+      main_body,
+      sdBox(
+        rayPos + spawnPos + vec3(0.0, oldmanHeight, 0.0),
+        vec3(oldmanWidth, oldmanHeight, oldmanWidth)
+      )
+    );
+  float bottom_body = sdSphere(rayPos + spawnPos, oldmanBottomWidth);
+
+  float result = unionSDF(main_body, bottom_body);
+  for (int i = 0; i < 12; i++) {
+    float angle = degToRad(30 * i);
+    result = unionSDF(result, constructOldManSection(rayPos, spawnPos, angle));
+  }
+  return SD(result, OLDMAN_ID);
+}
+
+/* Returns the signed distance to the object nearest to pos */
+SD sdScene(vec3 pos) {
+  SD result = SD(Inf, SKY_ID);
+
+  result = sdUnion(result, constructOldMan(pos, vec3(100000.0, -200000.0, 100000.0)));
+  result = sdUnion(result, SD(sdBox(pos, vec3(2.0, 0.2, 2.0)), BOX_ID));
+  return result;
+}
+
+// end: scene construction
+
+// begin: render
+
+vec3 proceduralSky(vec3 rayDir) {
+  return exp(-abs(rayDir.y) / uSkyColor);
+}
+
+vec3 proceduralSun(vec3 rayDir) {
+  return pow(max(0.0, dot(rayDir, uLightDir)), 1000) * uLightColor;
+}
+
+float checkerPattern(vec3 pos) {
+  vec3 p = floor(pos);
+  return mod(p.x + p.y + p.z, 2.0);
+}
+
+/* Returns the color of the object ID at pos */
+vec3 colorScene(vec3 pos, int ID) {
+  switch (ID) {
+    case OLDMAN_ID:
+    return vec3(0.2, 0.2, 0.2) * (checkerPattern(pos * 0.0001) * 0.5 + 0.5);
+    case BOX_ID:
+    // Scale the checker pattern to prevent artifacts
+    return vec3(0.6, 0.4, 0.2) * (checkerPattern(pos * 4.9) * 0.5 + 0.5);
+    default:
+    return vec3(1.0, 0.0, 0.0);
+  }
+}
+
+/* Returns the normalized gradient of the signed distance field of our scene */
+vec3 normalScene(vec3 pos) {
+  vec2 h = vec2(uNormalEps, 0);
+  return normalize(vec3(
+      sdScene(pos + h.xyy).dist - sdScene(pos - h.xyy).dist,
+      sdScene(pos + h.yxy).dist - sdScene(pos - h.yxy).dist,
+      sdScene(pos + h.yyx).dist - sdScene(pos - h.yyx).dist
+    ));
+}
+
+Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
+  Intersection intsec = Intersection(
+      0,
+      rayOrigin,
+      SKY_ID,
+      0
+    );
+
+  float next_depth = near;
+
+  while (
+    next_depth > uEpsilon
+      && intsec.depth < far
+      && intsec.steps < uSteps
+  ) {
+    intsec.depth += next_depth;
+    intsec.pos += rayDir * next_depth;
+
+    SD sd = sdScene(intsec.pos);
+    next_depth = sd.dist;
+    intsec.ID = sd.ID;
+
+    intsec.steps += 1;
+  }
+
+  return intsec;
+}
+
+void main() {
+  vec3 rayDir = normalize(viewDir); // Renormalize after interpolation
+  vec3 rayOrigin = uCameraPosition;
+
+  Intersection isec = raymarchScene(rayOrigin, rayDir, uNear, uFar);
+
+  if (isec.depth >= uFar) {
+    // No hit, render a procedural sky background
+    fragColor = proceduralSky(rayDir) + proceduralSun(rayDir);
+  } else {
+    // We hit something
+    // The normal is the normalized gradient of the signed distance field
+    vec3 normal = normalScene(isec.pos);
+    // Lambert lighting term
+    vec3 lighting = max(dot(normal, uLightDir), 0.0) * uLightColor;
+    // Test if something lies between the hit point and the light source
+    float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+    // Get the color of the hit point
+    vec3 albedo = colorScene(isec.pos, isec.ID);
+    // Calculate lighting
+    // To simulate a soft ambient light from all directions, we add a little bit
+    // of the sky color to the light term
+    fragColor = (shadow * lighting + uAmbient * uSkyColor) * albedo;
+  }
+}
+
+// end: render
