@@ -22,12 +22,12 @@ const float Inf = 1.0 / 0.0;
 const float NaN = 0.0 / 0.0;
 const float PI = 3.1415926;
 
-// everything in meters
-const float oldmanHeight = 100000.0;
-const float oldmanWidth = 200000.0;
-const float oldmanBottomWidth = 50000.0;
-const float oldmanSectionHeight = 10000.0;
-const float oldmanSectionWidth = 50000.0;
+// everything in kilometers
+const float oldmanHeight = 100.0;
+const float oldmanWidth = 200.0;
+const float oldmanBottomWidth = 50.0;
+const float oldmanSectionHeight = 10.0;
+const float oldmanSectionWidth = 50.0;
 
 // colors
 const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
@@ -152,8 +152,9 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
 SD sdScene(vec3 pos) {
   SD result = SD(Inf, SKY_ID);
 
-  result = sdUnion(result, constructOldMan(pos, vec3(100000.0, -200000.0, 100000.0)));
   result = sdUnion(result, SD(sdBox(pos, vec3(2.0, 0.2, 2.0)), BOX_ID));
+  vec3 fight_pos = vec3(100.0, -200.0, 100.0);
+  result = sdUnion(result, constructOldMan(pos, fight_pos));
   return result;
 }
 
