@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  inputs,
+  ...
+}:
 let
   # libs required by framework
   libs = with pkgs; [
@@ -18,12 +23,15 @@ in
 {
   # make dyn libs accessable in nixos
   env.LD_LIBRARY_PATH = lib.makeLibraryPath libs;
+  # make openGL work on non-NixOS systems
+  overlays = [ inputs.nixgl.overlay ];
 
   # install libs and additional programs
   packages =
     with pkgs;
     [
       cmake-format
+      nixgl.nixGLIntel
     ]
     ++ libs;
 
@@ -38,10 +46,7 @@ in
       cmake --build build/
     '';
     run.exec = ''
-      build && ./build/supernova
-    '';
-    run_flo.exec = ''
-      build && nix run --impure github:nix-community/nixGL -- ./build/supernova
+      build && nixGLIntel ./build/supernova
     '';
   };
 
