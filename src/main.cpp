@@ -18,17 +18,14 @@ struct MainApp : public App {
   Mesh mesh;
   Camera camera;
   vec3 uLightDir = normalize(vec3(1.0));
-  vec3 uLightColor = vec3(1.0);
-  vec3 uSkyColor = vec3(0.1, 0.3, 0.6);
-  float uAmbient = 0.3;
   float uNear = 0.1;
-  float uFar = 1'000'000'000.0;
+  float uFar = 10'000.0;
   int uSteps = 1000;
   float uEpsilon = 0.0001;
   float uNormalEps = 0.0001;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
-  float move_speed = 1000.0;
+  float move_speed = 1.0;
 
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
@@ -37,9 +34,6 @@ struct MainApp : public App {
 
     // Init uniforms
     program.set("uLightDir", uLightDir);
-    program.set("uLightColor", uLightColor);
-    program.set("uSkyColor", uSkyColor);
-    program.set("uAmbient", uAmbient);
     program.set("uNear", uNear);
     program.set("uFar", uFar);
     program.set("uSteps", uSteps);
@@ -101,17 +95,9 @@ struct MainApp : public App {
     ImGui::Begin("Settings", nullptr, ImGuiChildFlags_AlwaysAutoResize);
     if (ImGui::SphericalSlider("Light Dir", uLightDir))
       program.set("uLightDir", uLightDir);
-    if (ImGui::ColorEdit3("Light Color", value_ptr(uLightColor),
-                          ImGuiColorEditFlags_Float))
-      program.set("uLightColor", uLightColor);
-    if (ImGui::ColorEdit3("Sky Color", value_ptr(uSkyColor),
-                          ImGuiColorEditFlags_Float))
-      program.set("uSkyColor", uSkyColor);
-    if (ImGui::SliderFloat("Ambient", &uAmbient, 0.0, 1.0, "%.2f"))
-      program.set("uAmbient", uAmbient);
     if (ImGui::SliderFloat("Near Plane", &uNear, 0.0, 10.0, "%.1f"))
       program.set("uNear", uNear);
-    if (ImGui::SliderFloat("Far Plane", &uFar, 0.0, 1'000'000'000'000.0, "%.1f",
+    if (ImGui::SliderFloat("Far Plane", &uFar, 0.0, 10'000'000.0, "%.1f",
                            ImGuiSliderFlags_Logarithmic))
       program.set("uFar", uFar);
     if (ImGui::SliderInt("Max Steps", &uSteps, 0, 2000))
@@ -123,8 +109,8 @@ struct MainApp : public App {
                            ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
 
-    if (ImGui::SliderFloat("Camera move speed", &move_speed, 100.0, 10000.0,
-                           "%.6f", ImGuiSliderFlags_Logarithmic))
+    if (ImGui::SliderFloat("Camera move speed", &move_speed, 0.1, 100.0, "%.6f",
+                           ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
     ImGui::End();
   }
@@ -144,8 +130,6 @@ struct MainApp : public App {
       keys[(int)key] = false;
     }
   }
-
-  void scrollCallback(float x, float y) override { camera.zoom(y); }
 
   void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
                     bool middleButton) override {

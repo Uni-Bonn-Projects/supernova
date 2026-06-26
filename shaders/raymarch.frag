@@ -3,20 +3,18 @@
 in vec3 viewDir;
 out vec3 fragColor;
 
-uniform uint uView = 0u;
 uniform vec3 uCameraPosition;
 uniform float uFocalLength;
 uniform float uTime;
 
-uniform vec3 uLightDir = normalize(vec3(1.0));
-uniform vec3 uLightColor = vec3(1.0);
-uniform vec3 uSkyColor = vec3(0.1, 0.3, 0.6);
-uniform float uAmbient = 0.3;
-uniform float uNear = 0.01;
-uniform float uFar = 10000.0;
-uniform int uSteps = 100;
-uniform float uEpsilon = 0.0001;
-uniform float uNormalEps = 0.0001;
+uniform vec3 uLightDir;
+uniform float uNear;
+uniform float uFar;
+uniform int uSteps;
+uniform float uEpsilon;
+uniform float uNormalEps;
+
+const vec3 uLightColor = vec3(1.0);
 
 const float Inf = 1.0 / 0.0;
 const float NaN = 0.0 / 0.0;
@@ -153,7 +151,7 @@ SD sdScene(vec3 pos) {
   SD result = SD(Inf, SKY_ID);
 
   result = sdUnion(result, SD(sdBox(pos, vec3(2.0, 0.2, 2.0)), BOX_ID));
-  vec3 fight_pos = vec3(100.0, -200.0, 100.0);
+  vec3 fight_pos = vec3(600.0, 600.0, 600.0);
   result = sdUnion(result, constructOldMan(pos, fight_pos));
   return result;
 }
@@ -163,7 +161,8 @@ SD sdScene(vec3 pos) {
 // begin: render
 
 vec3 proceduralSky(vec3 rayDir) {
-  return exp(-abs(rayDir.y) / uSkyColor);
+  // TODO : render stars
+  return vec3(0.0);
 }
 
 vec3 proceduralSun(vec3 rayDir) {
@@ -246,9 +245,7 @@ void main() {
     // Get the color of the hit point
     vec3 albedo = colorScene(isec.pos, isec.ID);
     // Calculate lighting
-    // To simulate a soft ambient light from all directions, we add a little bit
-    // of the sky color to the light term
-    fragColor = (shadow * lighting + uAmbient * uSkyColor) * albedo;
+    fragColor = (shadow * lighting) * albedo;
   }
 }
 
