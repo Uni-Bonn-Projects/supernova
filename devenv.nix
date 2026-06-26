@@ -40,6 +40,9 @@ in
     run.exec = ''
       build && ./build/supernova
     '';
+    run_flo.exec = ''
+      build && nix run --impure github:nix-community/nixGL -- ./build/supernova
+    '';
   };
 
   # format on commit
