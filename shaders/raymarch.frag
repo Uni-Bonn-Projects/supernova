@@ -29,9 +29,12 @@ const float oldmanBottomWidth = 50000.0;
 const float oldmanSectionHeight = 10000.0;
 const float oldmanSectionWidth = 50000.0;
 
+// colors
+const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
+
 const int SKY_ID = 0;
-const int OLDMAN_ID = 1;
 const int BOX_ID = 2;
+const int STARSHIP_ID = 1;
 
 // begin: structs
 
@@ -107,15 +110,25 @@ float sdEllipsoid(vec3 pos, vec3 radius) {
 
 // begin: scene construction
 
-float constructOldManSection(vec3 rayPos, vec3 spawnPos, float angle) {
-  // relative to spawnPos
-  vec3 offset = oldmanWidth * vec3(cos(angle), 0.0, sin(angle));
+float constructOldManSection(vec3 rayPos, vec3 spawnPos) {
+  vec3 localPos = rayPos + spawnPos;
 
-  vec3 pos = rayPos + spawnPos + offset;
-  return sdBox(
-    rotateY(pos, angle),
-    vec3(oldmanSectionWidth, oldmanSectionHeight, oldmanSectionWidth)
-  );
+  float sp = 6.2831853 / 12.0; // 12 sections = 30 degrees angle diff
+  float an = atan(localPos.z, localPos.x);
+  float id = floor(an / sp);
+
+  float a1 = sp * id;
+  float a2 = sp * (id + 1.0);
+  vec2 r1 = mat2(cos(a1), -sin(a1), sin(a1), cos(a1)) * localPos.xz;
+  vec2 r2 = mat2(cos(a2), -sin(a2), sin(a2), cos(a2)) * localPos.xz;
+
+  float x_add = -oldmanWidth - oldmanSectionWidth * 0.8;
+  float y = localPos.y - oldmanSectionHeight;
+  vec3 size = vec3(oldmanSectionWidth, oldmanSectionHeight, oldmanSectionWidth);
+  float d1 = sdBox(vec3(r1.x + x_add, y, r1.y), size);
+  float d2 = sdBox(vec3(r2.x + x_add, y, r2.y), size);
+
+  return min(d1, d2);
 }
 
 SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
@@ -130,11 +143,9 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
   float bottom_body = sdSphere(rayPos + spawnPos, oldmanBottomWidth);
 
   float result = unionSDF(main_body, bottom_body);
-  for (int i = 0; i < 12; i++) {
-    float angle = degToRad(30 * i);
-    result = unionSDF(result, constructOldManSection(rayPos, spawnPos, angle));
-  }
-  return SD(result, OLDMAN_ID);
+  result = unionSDF(result, constructOldManSection(rayPos, spawnPos));
+
+  return SD(result, STARSHIP_ID);
 }
 
 /* Returns the signed distance to the object nearest to pos */
@@ -166,11 +177,11 @@ float checkerPattern(vec3 pos) {
 /* Returns the color of the object ID at pos */
 vec3 colorScene(vec3 pos, int ID) {
   switch (ID) {
-    case OLDMAN_ID:
-    return vec3(0.2, 0.2, 0.2) * (checkerPattern(pos * 0.0001) * 0.5 + 0.5);
     case BOX_ID:
     // Scale the checker pattern to prevent artifacts
     return vec3(0.6, 0.4, 0.2) * (checkerPattern(pos * 4.9) * 0.5 + 0.5);
+    case STARSHIP_ID:
+    return starshipColor;
     default:
     return vec3(1.0, 0.0, 0.0);
   }
