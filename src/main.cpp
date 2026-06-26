@@ -56,18 +56,23 @@ struct MainApp : public App {
     }
     if (keys[(int)Key::W]) {
       camera.moveInEyeSpace(vec3(0.0, 0.0, -actual_move_speed));
-    } else if (keys[(int)Key::A]) {
+    }
+    if (keys[(int)Key::A]) {
       camera.moveInEyeSpace(vec3(-actual_move_speed, 0.0, 0.0));
-    } else if (keys[(int)Key::S]) {
+    }
+    if (keys[(int)Key::S]) {
       camera.moveInEyeSpace(vec3(0.0, 0.0, actual_move_speed));
-    } else if (keys[(int)Key::D]) {
+    }
+    if (keys[(int)Key::D]) {
       camera.moveInEyeSpace(vec3(actual_move_speed, 0.0, 0.0));
-    } else if (keys[(int)Key::SPACE]) {
+    }
+    if (keys[(int)Key::SPACE]) {
       vec3 camDelta = vec3(0.0, actual_move_speed, 0.0);
       camera.worldPosition += camDelta;
       camera.target += camDelta;
       camera.invalidate();
-    } else if (keys[(int)Key::LEFT_CONTROL]) {
+    }
+    if (keys[(int)Key::LEFT_CONTROL] || keys[(int)Key::C]) {
       vec3 camDelta = vec3(0.0, -actual_move_speed, 0.0);
       camera.worldPosition += camDelta;
       camera.target += camDelta;
