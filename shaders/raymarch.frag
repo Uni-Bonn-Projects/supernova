@@ -26,12 +26,12 @@ const float oldmanWidth = 200.0;
 const float oldmanBottomWidth = 50.0;
 const float oldmanSectionHeight = 10.0;
 const float oldmanSectionWidth = 50.0;
+const float attackerSize = 2.5;
 
 // colors
 const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
 
 const int SKY_ID = 0;
-const int BOX_ID = 2;
 const int STARSHIP_ID = 1;
 
 // begin: structs
@@ -59,14 +59,26 @@ float degToRad(float deg) {
   return deg * (PI / 180.0);
 }
 
+vec3 rotateZ(vec3 pos, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+
+  mat3 m = mat3(
+      c, s, 0.0,
+      -s, c, 0.0,
+      0.0, 0.0, 1.0
+    );
+  return m * pos;
+}
+
 vec3 rotateY(vec3 pos, float angle) {
   float c = cos(angle);
   float s = sin(angle);
 
   mat3 m = mat3(
-      vec3(c, 0.0, -s), // column 0
-      vec3(0.0, 1.0, 0.0), // column 1
-      vec3(s, 0.0, c) // column 2
+      c, 0.0, s,
+      0.0, 1.0, 0.0,
+      -s, 0.0, c
     );
   return m * pos;
 }
@@ -96,12 +108,6 @@ float sdSphere(vec3 pos, float radius) {
 float sdBox(vec3 pos, vec3 size) {
   vec3 q = abs(pos) - size;
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
-}
-
-float sdEllipsoid(vec3 pos, vec3 radius) {
-  float k0 = length(pos / radius);
-  float k1 = length(pos / radius / radius);
-  return k0 * (k0 - 1.0) / k1;
 }
 
 // end: objects
@@ -150,9 +156,20 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
 SD sdScene(vec3 pos) {
   SD result = SD(Inf, SKY_ID);
 
-  result = sdUnion(result, SD(sdBox(pos, vec3(2.0, 0.2, 2.0)), BOX_ID));
   vec3 fight_pos = vec3(600.0, 600.0, 600.0);
+
   result = sdUnion(result, constructOldMan(pos, fight_pos));
+
+  vec3 attacker_distance = vec3(oldmanWidth * 4, 0.0, 0.0);
+  vec3 attacker_origin = pos + fight_pos;
+  for (int i = 0; i < 100; i++) {
+    vec3 attacker_vec = rotateZ(attacker_distance, degToRad((i % 5) * (360 / 5)));
+    attacker_vec = rotateY(attacker_vec, degToRad(i * (360 / 10)));
+
+    float attacker = sdSphere(attacker_origin + attacker_vec, attackerSize);
+    result = sdUnion(result, SD(attacker, STARSHIP_ID));
+  }
+
   return result;
 }
 
@@ -177,9 +194,6 @@ float checkerPattern(vec3 pos) {
 /* Returns the color of the object ID at pos */
 vec3 colorScene(vec3 pos, int ID) {
   switch (ID) {
-    case BOX_ID:
-    // Scale the checker pattern to prevent artifacts
-    return vec3(0.6, 0.4, 0.2) * (checkerPattern(pos * 4.9) * 0.5 + 0.5);
     case STARSHIP_ID:
     return starshipColor;
     default:
