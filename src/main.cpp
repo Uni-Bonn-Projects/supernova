@@ -23,8 +23,8 @@ struct MainApp : public App {
   int uSteps = 1000;
   float uEpsilon = 0.0001;
   float uNormalEps = 0.0001;
-  bool automatic_camera = false;
-  float flight_time = 0.0f;
+  bool uAutoCam = false;
+  float uFlightTime = 0.0f;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -48,36 +48,36 @@ struct MainApp : public App {
     // automatic camera for movie
     //  TODO FLO: richtige kamera positionen und eventuel Winkel und bisschen
     //  kamerafahrt
-    if (automatic_camera == true) {
+    if (uAutoCam == true) {
       // timer wie lange clip geht
-      flight_time += delta;
+      uFlightTime += delta;
 
       // old man folgen (Platzhalter)
-      if (flight_time < 6.0f) {
+      if (uFlightTime < 6.0f) {
         camera.worldPosition = vec3(0.0f, 150.0f, 500.0f);
         camera.target = vec3(0.0f);
         camera.invalidate();
 
         // panning shot auf attacker (Platzhalter)
-      } else if (flight_time < 12.0f) {
+      } else if (uFlightTime < 12.0f) {
         camera.worldPosition = vec3(500.0f, 50.0f, 0.0f);
         camera.target = vec3(0.0f);
         camera.invalidate();
 
         // kampft old man und attacker (Platzhalter)
-      } else if (flight_time < 19.0f) {
+      } else if (uFlightTime < 19.0f) {
         camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
         camera.target = vec3(0.0f);
         camera.invalidate();
 
         // ende
       } else {
-        automatic_camera = false;
-        flight_time = 0.0f;
+        uAutoCam = false;
+        uFlightTime = 0.0f;
       }
     }
 
-    if (automatic_camera == false) {
+    if (uAutoCam == false) {
       // move camera
       float actual_move_speed = move_speed;
       if (keys[(int)Key::LEFT_SHIFT]) {
@@ -148,11 +148,11 @@ struct MainApp : public App {
                            ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
 
-    if (ImGui::Checkbox("Automatic Camera", &automatic_camera))
-      flight_time = 0.0f;
-    ImGui::Text("Shot: %s", flight_time < 6.0f    ? "1 - Old Man"
-                            : flight_time < 12.0f ? "2 - Attacker"
-                            : flight_time < 19.0f ? "3 - Kampf"
+    if (ImGui::Checkbox("Automatic Camera", &uAutoCam))
+      uFlightTime = 0.0f;
+    ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
+                            : uFlightTime < 12.0f ? "2 - Attacker"
+                            : uFlightTime < 19.0f ? "3 - Kampf"
                                                   : "---");
     ImGui::End();
   }
