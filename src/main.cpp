@@ -23,6 +23,8 @@ struct MainApp : public App {
   int uSteps = 1000;
   float uEpsilon = 0.0001;
   float uNormalEps = 0.0001;
+  bool automatic_camera = false;
+  float flight_time = 0.0f;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -43,36 +45,69 @@ struct MainApp : public App {
   }
 
   void render() override {
-    // move camera
-    float actual_move_speed = move_speed;
-    if (keys[(int)Key::LEFT_SHIFT]) {
-      actual_move_speed *= 10;
-    }
-    if (keys[(int)Key::W]) {
-      camera.moveInEyeSpace(vec3(0.0, 0.0, -actual_move_speed));
-    }
-    if (keys[(int)Key::A]) {
-      camera.moveInEyeSpace(vec3(-actual_move_speed, 0.0, 0.0));
-    }
-    if (keys[(int)Key::S]) {
-      camera.moveInEyeSpace(vec3(0.0, 0.0, actual_move_speed));
-    }
-    if (keys[(int)Key::D]) {
-      camera.moveInEyeSpace(vec3(actual_move_speed, 0.0, 0.0));
-    }
-    if (keys[(int)Key::SPACE]) {
-      vec3 camDelta = vec3(0.0, actual_move_speed, 0.0);
-      camera.worldPosition += camDelta;
-      camera.target += camDelta;
-      camera.invalidate();
-    }
-    if (keys[(int)Key::LEFT_CONTROL] || keys[(int)Key::C]) {
-      vec3 camDelta = vec3(0.0, -actual_move_speed, 0.0);
-      camera.worldPosition += camDelta;
-      camera.target += camDelta;
-      camera.invalidate();
+    // automatic camera for movie
+    //  TODO FLO: richtige kamera positionen und eventuel Winkel und bisschen
+    //  kamerafahrt
+    if (automatic_camera == true) {
+      // timer wie lange clip geht
+      flight_time += delta;
+
+      // old man folgen (Platzhalter)
+      if (flight_time < 6.0f) {
+        camera.worldPosition = vec3(0.0f, 150.0f, 500.0f);
+        camera.target = vec3(0.0f);
+        camera.invalidate();
+
+        // panning shot auf attacker (Platzhalter)
+      } else if (flight_time < 12.0f) {
+        camera.worldPosition = vec3(500.0f, 50.0f, 0.0f);
+        camera.target = vec3(0.0f);
+        camera.invalidate();
+
+        // kampft old man und attacker (Platzhalter)
+      } else if (flight_time < 19.0f) {
+        camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
+        camera.target = vec3(0.0f);
+        camera.invalidate();
+
+        // ende
+      } else {
+        automatic_camera = false;
+        flight_time = 0.0f;
+      }
     }
 
+    if (automatic_camera == false) {
+      // move camera
+      float actual_move_speed = move_speed;
+      if (keys[(int)Key::LEFT_SHIFT]) {
+        actual_move_speed *= 10;
+      }
+      if (keys[(int)Key::W]) {
+        camera.moveInEyeSpace(vec3(0.0, 0.0, -actual_move_speed));
+      }
+      if (keys[(int)Key::A]) {
+        camera.moveInEyeSpace(vec3(-actual_move_speed, 0.0, 0.0));
+      }
+      if (keys[(int)Key::S]) {
+        camera.moveInEyeSpace(vec3(0.0, 0.0, actual_move_speed));
+      }
+      if (keys[(int)Key::D]) {
+        camera.moveInEyeSpace(vec3(actual_move_speed, 0.0, 0.0));
+      }
+      if (keys[(int)Key::SPACE]) {
+        vec3 camDelta = vec3(0.0, actual_move_speed, 0.0);
+        camera.worldPosition += camDelta;
+        camera.target += camDelta;
+        camera.invalidate();
+      }
+      if (keys[(int)Key::LEFT_CONTROL] || keys[(int)Key::C]) {
+        vec3 camDelta = vec3(0.0, -actual_move_speed, 0.0);
+        camera.worldPosition += camDelta;
+        camera.target += camDelta;
+        camera.invalidate();
+      }
+    }
     program.set("uTime", time);
 
     // Update camera information on change
@@ -112,6 +147,13 @@ struct MainApp : public App {
     if (ImGui::SliderFloat("Camera move speed", &move_speed, 0.1, 100.0, "%.6f",
                            ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
+
+    if (ImGui::Checkbox("Automatic Camera", &automatic_camera))
+      flight_time = 0.0f;
+    ImGui::Text("Shot: %s", flight_time < 6.0f    ? "1 - Old Man"
+                            : flight_time < 12.0f ? "2 - Attacker"
+                            : flight_time < 19.0f ? "3 - Kampf"
+                                                  : "---");
     ImGui::End();
   }
 
