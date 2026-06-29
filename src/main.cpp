@@ -25,6 +25,8 @@ struct MainApp : public App {
   float uNormalEps = 0.0001;
   bool uAutoCam = false;
   float uFlightTime = 0.0f;
+  float uWarp = 0.75f;
+  float uScan = 0.75f;
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
@@ -42,6 +44,9 @@ struct MainApp : public App {
     program.set("uSteps", uSteps);
     program.set("uEpsilon", uEpsilon);
     program.set("uNormalEps", uNormalEps);
+    program.set("uWarp", uWarp);
+    program.set("uScan", uScan);
+    program.set("uResolution", resolution);
     program.use();
   }
 
@@ -154,6 +159,11 @@ struct MainApp : public App {
                             : uFlightTime < 12.0f ? "2 - Attacker"
                             : uFlightTime < 19.0f ? "3 - Kampf"
                                                   : "---");
+
+    if (ImGui::SliderFloat("CRT Warp", &uWarp, 0.0f, 4.0f))
+      program.set("uWarp", uWarp);
+    if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
+      program.set("uScan", uScan);
     ImGui::End();
   }
 
@@ -181,6 +191,7 @@ struct MainApp : public App {
 
   void resizeCallback(const vec2 &resolution) override {
     camera.resize(resolution.x / resolution.y);
+    program.set("uResolution", resolution);
   }
 };
 
