@@ -25,6 +25,7 @@ struct MainApp : public App {
   float uNormalEps = 0.0001;
   bool uAutoCam = false;
   float uFlightTime = 0.0f;
+  vec3 fightPos = vec3(-600.0, -600.0, -600.0);
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -45,29 +46,28 @@ struct MainApp : public App {
   }
 
   void render() override {
-    // automatic camera for movie
-    //  TODO FLO: richtige kamera positionen und eventuel Winkel und bisschen
     //  kamerafahrt
     if (uAutoCam == true) {
       // timer wie lange clip geht
       uFlightTime += delta;
 
-      // old man folgen (Platzhalter)
+      // old man zeigen
       if (uFlightTime < 6.0f) {
-        camera.worldPosition = vec3(0.0f, 150.0f, 500.0f);
-        camera.target = vec3(0.0f);
+        camera.worldPosition = fightPos + vec3(700.0f, 300.0f, 0.0f);
+        camera.target = fightPos;
         camera.invalidate();
 
-        // panning shot auf attacker (Platzhalter)
+        // panning shot auf attacker
       } else if (uFlightTime < 12.0f) {
-        camera.worldPosition = vec3(500.0f, 50.0f, 0.0f);
-        camera.target = vec3(0.0f);
+        vec3 attackerPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+        camera.worldPosition = attackerPos + vec3(100.0f, 50.0f, -100.0f);
+        camera.target = attackerPos;
         camera.invalidate();
 
-        // kampft old man und attacker (Platzhalter)
+        // kampft old man und attacker weiter weg um ganzen Kampf zu sehen
       } else if (uFlightTime < 19.0f) {
-        camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
-        camera.target = vec3(0.0f);
+        camera.worldPosition = fightPos + vec3(1200.0f, 500.0f, 1200.0f);
+        camera.target = fightPos;
         camera.invalidate();
 
         // ende
