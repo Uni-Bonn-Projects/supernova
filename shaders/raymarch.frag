@@ -16,8 +16,18 @@ uniform float uNormalEps;
 uniform mat4 uCameraMatrix;
 uniform float uAspectRatio;
 uniform vec2 uResolution = vec2(800.0, 600.0);
+
 uniform float uWarp = 0.75; // simulate curvature of CRT monitor
 uniform float uScan = 0.75; // simulate darkness between scanlines
+
+uniform vec3 u_oldman_pos;
+uniform float u_oldman_active;
+uniform float u_oldman_scale;
+
+uniform vec3 u_attacker_pos;
+uniform float u_attacker_active;
+uniform float u_attacker_scale;
+
 
 const vec3 uLightColor = vec3(1.0);
 
@@ -161,18 +171,26 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
 SD sdScene(vec3 pos) {
   SD result = SD(Inf, SKY_ID);
 
-  vec3 fight_pos = vec3(600.0, 600.0, 600.0);
+  if (u_oldman_active > 0.5) {
+    vec3 scaledPos = pos / u_oldman_scale;
+    /* constructOldMan wants rayPos + spawnPos so we use -u_oldman_pos to arrive at +u_oldman_pos */
+    SD oldmanSD = constructOldMan(scaledPos, -u_oldman_pos / u_oldman_scale);
+    oldmanSD.dist *= u_oldman_scale;
+    
+    result = sdUnion(result, oldmanSD);
+  }
 
-  result = sdUnion(result, constructOldMan(pos, fight_pos));
+  if (u_attacker_active > 0.5) {
+    vec3 attacker_distance = vec3(oldmanWidth * 4, 0.0, 0.0);
+    vec3 attacker_origin = pos - u_attacker_pos;
+    
+    for (int i = 0; i < 100; i++) {
+      vec3 attacker_vec = rotateZ(attacker_distance, degToRad((i % 5) * (360 / 5)));
+      attacker_vec = rotateY(attacker_vec, degToRad(i * (360 / 10)));
 
-  vec3 attacker_distance = vec3(oldmanWidth * 4, 0.0, 0.0);
-  vec3 attacker_origin = pos + fight_pos;
-  for (int i = 0; i < 100; i++) {
-    vec3 attacker_vec = rotateZ(attacker_distance, degToRad((i % 5) * (360 / 5)));
-    attacker_vec = rotateY(attacker_vec, degToRad(i * (360 / 10)));
-
-    float attacker = sdSphere(attacker_origin + attacker_vec, attackerSize);
-    result = sdUnion(result, SD(attacker, STARSHIP_ID));
+      float attacker = sdSphere(attacker_origin + attacker_vec, attackerSize * u_attacker_scale);
+      result = sdUnion(result, SD(attacker, STARSHIP_ID));
+    }
   }
 
   return result;

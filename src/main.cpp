@@ -7,16 +7,23 @@ using namespace glm;
 
 #include <imgui.h>
 
+#include <cinematic.cpp>
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
 
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 struct MainApp : public App {
   Program program;
   Mesh mesh;
   Camera camera;
+  AssetManager assetManager;
+  CinematicDirector director;
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 0.1;
   float uFar = 10'000.0;
@@ -37,6 +44,19 @@ struct MainApp : public App {
     program.load("shaders/raygen.vert", "shaders/raymarch.frag");
     camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
 
+    // register objects
+    assetManager.registerObject("oldman");
+    assetManager.registerObject("attacker");
+
+    // camera movement
+    director.moveCameraTo(fightPos + vec3(700.0f, 300.0f, 0.0f), fightPos,
+                          114.0f);
+    vec3 attackerPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+    director.moveCameraTo(attackerPos + vec3(100.0f, 50.0f, -100.0f),
+                          attackerPos, 56.0f);
+    director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
+                          201.0f);
+
     // Init uniforms
     program.set("uLightDir", uLightDir);
     program.set("uNear", uNear);
@@ -51,32 +71,31 @@ struct MainApp : public App {
   }
 
   void render() override {
-    //  kamerafahrt
+    // autocam
     if (uAutoCam == true) {
-      // timer wie lange clip geht
-      uFlightTime += delta;
-
-      // old man zeigen
-      if (uFlightTime < 6.0f) {
-        camera.worldPosition = fightPos + vec3(700.0f, 300.0f, 0.0f);
-        camera.target = fightPos;
-        camera.invalidate();
-
-        // panning shot auf attacker
-      } else if (uFlightTime < 12.0f) {
-        vec3 attackerPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
-        camera.worldPosition = attackerPos + vec3(100.0f, 50.0f, -100.0f);
-        camera.target = attackerPos;
-        camera.invalidate();
-
-        // kampft old man und attacker weiter weg um ganzen Kampf zu sehen
-      } else if (uFlightTime < 19.0f) {
-        camera.worldPosition = fightPos + vec3(1200.0f, 500.0f, 1200.0f);
-        camera.target = fightPos;
-        camera.invalidate();
-
-        // ende
+      uFlightTime += App::delta;
+      // spawn and despawn
+      if (uFlightTime >= 0.0f && uFlightTime < 25.0f) {
+        assetManager.spawn("oldman", fightPos, 1.0f);
       } else {
+        assetManager.despawn("oldman");
+      }
+
+      if (uFlightTime >= 6.0f && uFlightTime < 25.0f) {
+        assetManager.spawn("attacker", fightPos + vec3(800.0f, 0.0f, 0.0f),
+                           2.5f);
+      } else {
+        assetManager.despawn("attacker");
+      }
+      // gets the smooth camera curve
+      camera.worldPosition = CinematicSpline::getInterpolatedPosition(
+          director.timelineKeyframes, uFlightTime, false);
+      camera.target = CinematicSpline::getInterpolatedPosition(
+          director.timelineKeyframes, uFlightTime, true);
+      camera.invalidate();
+
+      // end
+      if (uFlightTime > director.currentTimelineEnd) {
         uAutoCam = false;
         uFlightTime = 0.0f;
       }
@@ -114,6 +133,8 @@ struct MainApp : public App {
       }
     }
     program.set("uTime", time);
+    // update objects for shader
+    assetManager.updateShaderUniforms(program);
 
     // Update camera information on change
     if (camera.updateIfChanged()) {
@@ -157,7 +178,7 @@ struct MainApp : public App {
       uFlightTime = 0.0f;
     ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
                             : uFlightTime < 12.0f ? "2 - Attacker"
-                            : uFlightTime < 19.0f ? "3 - Kampf"
+                            : uFlightTime < 25.0f ? "3 - Kampf"
                                                   : "---");
 
     if (ImGui::SliderFloat("CRT Warp", &uWarp, 0.0f, 4.0f))
