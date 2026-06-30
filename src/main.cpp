@@ -7,16 +7,20 @@ using namespace glm;
 
 #include <imgui.h>
 
+#include "audio/miniaudio.h"
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
+#include <iostream>
 
 struct MainApp : public App {
   Program program;
   Mesh mesh;
   Camera camera;
+  ma_engine audioEngine;
+  bool audioAvailable = false;
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 0.1;
   float uFar = 10'000.0;
@@ -42,6 +46,24 @@ struct MainApp : public App {
     program.set("uEpsilon", uEpsilon);
     program.set("uNormalEps", uNormalEps);
     program.use();
+
+    auto result = ma_engine_init(NULL, &audioEngine);
+    audioAvailable = result == MA_SUCCESS;
+    if (!audioAvailable) {
+      std::cerr << "Audio engine init failed: " << result << "\n";
+    } else {
+      result = ma_engine_play_sound(&audioEngine, "src/audio/Geist.wav", NULL);
+      audioAvailable = result == MA_SUCCESS;
+      if (!audioAvailable) {
+        std::cerr << "Failed to play audio: " << result << "\n";
+      }
+    }
+  }
+
+  ~MainApp() {
+    if (audioAvailable) {
+      ma_engine_uninit(&audioEngine);
+    }
   }
 
   void render() override {
@@ -154,6 +176,9 @@ struct MainApp : public App {
                             : uFlightTime < 12.0f ? "2 - Attacker"
                             : uFlightTime < 19.0f ? "3 - Kampf"
                                                   : "---");
+    if (!audioAvailable) {
+      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");
+    }
     ImGui::End();
   }
 

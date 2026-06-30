@@ -6,7 +6,7 @@ project(
   VERSION 1.0
   LANGUAGES CXX)
 
-set(SRC src/main.cpp)
+set(SRC src/main.cpp src/audio/miniaudio.cpp)
 
 # install framework
 include(FetchContent)
