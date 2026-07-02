@@ -28,6 +28,15 @@ uniform vec3 u_attacker_pos;
 uniform float u_attacker_active;
 uniform float u_attacker_scale;
 
+// big blue laser 
+const int LASER_ID = 2;
+uniform vec3 uLaserStart;
+uniform vec3 uLaserEnd;
+uniform float uLaserRadius = 0.5;
+uniform vec3 uLaserColor = vec3(1.0, 0.1, 0.1);
+uniform float uLaserGlowRadius = 20.0;
+uniform float uLaserGlowIntensity = 0.6;
+
 
 const vec3 uLightColor = vec3(1.0);
 
@@ -167,6 +176,19 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
   return SD(result, STARSHIP_ID);
 }
 
+float sdCapsule(vec3 pos, vec3 a, vec3 b, float radius) {
+  vec3 pa = pos - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - radius;
+}
+
+// distance to axis, without glow
+float distToAxis(vec3 pos, vec3 a, vec3 b) {
+  vec3 pa = pos - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
 /* Returns the signed distance to the object nearest to pos */
 SD sdScene(vec3 pos) {
   SD result = SD(Inf, SKY_ID);
@@ -192,6 +214,10 @@ SD sdScene(vec3 pos) {
       result = sdUnion(result, SD(attacker, STARSHIP_ID));
     }
   }
+
+  // for big blue laser, no if needed because fixed pos
+  SD laserSD = SD(sdCapsule(pos, uLaserStart, uLaserEnd, uLaserRadius), LASER_ID);
+  result = sdUnion(result, laserSD);
 
   return result;
 }
@@ -260,6 +286,20 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
   }
 
   return intsec;
+}
+
+vec3 laserGlow(vec3 rayOrigin, vec3 rayDir, float maxDepth) {
+  const int GLOW_STEPS = 24;
+  float stepSize = maxDepth / float(GLOW_STEPS);
+  vec3 p = rayOrigin;
+  float accum = 0.0;
+
+  for (int i = 0; i < GLOW_STEPS; i++) {
+    p += rayDir * stepSize;
+    float d = max(distToAxis(p, uLaserStart, uLaserEnd) - uLaserRadius, 0.0);
+    accum += exp(-(d * d) / (uLaserGlowRadius * uLaserGlowRadius)) * stepSize;
+  }
+  return accum * uLaserGlowIntensity * uLaserColor;
 }
 
 void main() {
