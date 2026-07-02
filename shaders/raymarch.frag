@@ -340,6 +340,10 @@ void main() {
     // Calculate lighting
     color = (shadow * lighting) * albedo;
   }
+
+  float marchDist = min(isec.depth, uFar);
+  color += laserGlow(rayOrigin, rayDir, marchDist);
+
   // determine if we are drawing in a scanline
   float apply = abs(sin(gl_FragCoord.y) * 0.5 * uScan);
   // sample the texture
