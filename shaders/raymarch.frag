@@ -184,7 +184,7 @@ SD sdScene(vec3 pos) {
     vec3 attacker_distance = vec3(oldmanWidth * 4, 0.0, 0.0);
     vec3 attacker_origin = pos - u_attacker_pos;
     
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 13; i++) {
       vec3 attacker_vec = rotateZ(attacker_distance, degToRad((i % 5) * (360 / 5)));
       attacker_vec = rotateY(attacker_vec, degToRad(i * (360 / 10)));
 
