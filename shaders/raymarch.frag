@@ -68,6 +68,7 @@ struct Intersection {
   vec3 pos; // Current position on the ray
   int ID; // ID of the closest object
   int steps; // Number of steps taken
+  float glowAccum;
 };
 
 // end: structs
@@ -136,6 +137,14 @@ float sdCapsule(vec3 pos, vec3 a, vec3 b, float radius) {
   vec3 ba = b - a;
   float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
   return length(pa - ba * h) - radius;
+}
+
+// Distance from pos to the laser axis
+float distanceToLaserAxis(vec3 pos, vec3 a, vec3 b) {
+  vec3 pa = pos - a;
+  vec3 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
 }
 
 // end: objects
@@ -257,7 +266,8 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
       0,
       rayOrigin,
       SKY_ID,
-      0
+      0,
+      0.0
     );
 
   float next_depth = near;
@@ -273,6 +283,14 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
     SD sd = sdScene(intsec.pos);
     next_depth = sd.dist;
     intsec.ID = sd.ID;
+
+    // Acc laser glow 
+    if (u_laserActive > 0.5) {
+      float distToAxis = distanceToLaserAxis(intsec.pos, u_laserStart, u_laserEnd);
+      float sig = 30.0; // glow falloff, can be changed
+      float glow = exp(-distToAxis * distToAxis / (2.0 * sig * sig));
+      intsec.glowAccum += glow * (next_depth * 0.01);
+    }
 
     intsec.steps += 1;
   }
@@ -317,6 +335,10 @@ void main() {
     vec3 albedo = colorScene(isec.pos, isec.ID);
     // Calculate lighting
     color = (shadow * lighting) * albedo;
+
+    // Add glow to color
+    vec3 laserGlowColor = vec3(0.0, 1.0, 1.0); // color can be changed, atm blue
+    color += isec.glowAccum * laserGlowColor * 2.0;
   }
 
   // determine if we are drawing in a scanline

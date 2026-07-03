@@ -68,6 +68,13 @@ struct MainApp : public App {
     program.set("uScan", uScan);
     program.set("uResolution", resolution);
     program.use();
+
+    // Laser
+    program.set("u_laserStart", vec3(0.0f, 0.0f, 0.0f));
+    program.set("u_laserEnd", vec3(500.0f, 0.0f, 0.0f));
+    program.set("u_laserActive", 1.0f);
+    program.set("u_laserCoreRadius", 20.0f);
+    program.set("u_laserGlowRadius", 100.0f);
   }
 
   void render() override {
