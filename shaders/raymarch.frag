@@ -28,6 +28,12 @@ uniform vec3 u_attacker_pos;
 uniform float u_attacker_active;
 uniform float u_attacker_scale;
 
+uniform vec3 u_laserStart;
+uniform vec3 u_laserEnd;
+uniform float u_laserActive;
+uniform float u_laserCoreRadius;
+uniform float u_laserGlowRadius;
+
 const vec3 uLightColor = vec3(1.0);
 
 const float Inf = 1.0 / 0.0;
@@ -47,6 +53,7 @@ const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
 
 const int SKY_ID = 0;
 const int STARSHIP_ID = 1;
+const int LASER_ID = 2;
 
 // begin: structs
 
@@ -124,6 +131,13 @@ float sdBox(vec3 pos, vec3 size) {
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+float sdCapsule(vec3 pos, vec3 a, vec3 b, float radius) {
+  vec3 pa = pos - a;
+  vec3 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - radius;
+}
+
 // end: objects
 
 // begin: scene construction
@@ -190,6 +204,11 @@ SD sdScene(vec3 pos) {
       float attacker = sdSphere(attacker_origin + attacker_vec, attackerSize * u_attacker_scale);
       result = sdUnion(result, SD(attacker, STARSHIP_ID));
     }
+  }
+
+  if (u_laserActive > 0.5) {
+  float laserDist = sdCapsule(pos, u_laserStart, u_laserEnd, u_laserCoreRadius);
+  result = sdUnion(result, SD(laserDist, LASER_ID));
   }
 
   return result;
