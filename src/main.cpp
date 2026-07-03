@@ -35,6 +35,13 @@ struct MainApp : public App {
   float uWarp = 0.75f;
   float uScan = 0.75f;
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
+  vec3 laserStart = vec3(0.0f, 0.0f, 0.0f);
+  vec3 laserEnd = vec3(500.0f, 0.0f, 0.0f);
+  float laserCoreRadius = 20.0f;
+  float laserGlowRadius = 100.0f;
+  float laserPulseSpeed = 3.0f;
+  float laserGlowSigma = 30.0f;
+  bool laserActive = true;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -70,11 +77,13 @@ struct MainApp : public App {
     program.use();
 
     // Laser
-    program.set("u_laserStart", vec3(0.0f, 0.0f, 0.0f));
-    program.set("u_laserEnd", vec3(500.0f, 0.0f, 0.0f));
-    program.set("u_laserActive", 1.0f);
-    program.set("u_laserCoreRadius", 20.0f);
-    program.set("u_laserGlowRadius", 100.0f);
+    program.set("u_laserStart", laserStart);
+    program.set("u_laserEnd", laserEnd);
+    program.set("u_laserActive", laserActive);
+    program.set("u_laserCoreRadius", laserCoreRadius);
+    program.set("u_laserGlowRadius", laserGlowRadius);
+    program.set("u_laserPulseSpeed", laserPulseSpeed);
+    program.set("u_laserGlowSigma", laserGlowSigma);
   }
 
   void render() override {
@@ -192,6 +201,36 @@ struct MainApp : public App {
       program.set("uWarp", uWarp);
     if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
       program.set("uScan", uScan);
+
+    ImGui::Separator();
+    ImGui::Text("Laser Settings");
+
+    if (ImGui::Checkbox("Laser Active", &laserActive))
+      program.set("u_laserActive", laserActive ? 1.0f : 0.0f);
+
+    // Laser start position
+    if (ImGui::SliderFloat("Laser Start X", &laserStart.x, -1000.0f, 1000.0f))
+      program.set("u_laserStart", laserStart);
+    if (ImGui::SliderFloat("Laser Start Y", &laserStart.y, -1000.0f, 1000.0f))
+      program.set("u_laserStart", laserStart);
+    if (ImGui::SliderFloat("Laser Start Z", &laserStart.z, -1000.0f, 1000.0f))
+      program.set("u_laserStart", laserStart);
+
+    // Laser end position
+    if (ImGui::SliderFloat("Laser End X", &laserEnd.x, -1000.0f, 1000.0f))
+      program.set("u_laserEnd", laserEnd);
+    if (ImGui::SliderFloat("Laser End Y", &laserEnd.y, -1000.0f, 1000.0f))
+      program.set("u_laserEnd", laserEnd);
+    if (ImGui::SliderFloat("Laser End Z", &laserEnd.z, -1000.0f, 1000.0f))
+      program.set("u_laserEnd", laserEnd);
+
+    // Laser parameters
+    if (ImGui::SliderFloat("Laser Core Radius", &laserCoreRadius, 1.0f, 100.0f))
+      program.set("u_laserCoreRadius", laserCoreRadius);
+    if (ImGui::SliderFloat("Laser Glow Sigma", &laserGlowSigma, 5.0f, 100.0f))
+      program.set("u_laserGlowSigma", laserGlowSigma);
+    if (ImGui::SliderFloat("Laser Pulse Speed", &laserPulseSpeed, 0.1f, 10.0f))
+      program.set("u_laserPulseSpeed", laserPulseSpeed);
     ImGui::End();
   }
 

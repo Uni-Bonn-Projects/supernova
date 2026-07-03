@@ -33,6 +33,8 @@ uniform vec3 u_laserEnd;
 uniform float u_laserActive;
 uniform float u_laserCoreRadius;
 uniform float u_laserGlowRadius;
+uniform float u_laserPulseSpeed;
+uniform float u_laserGlowSigma;
 
 const vec3 uLightColor = vec3(1.0);
 
@@ -287,6 +289,7 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
     // Acc laser glow 
     if (u_laserActive > 0.5) {
       float distToAxis = distanceToLaserAxis(intsec.pos, u_laserStart, u_laserEnd);
+      float pulse = 0.5 + 0.5 * sin(uTime * 0.001 *  u_laserPulseSpeed);
       float sig = 30.0; // glow falloff, can be changed
       float glow = exp(-distToAxis * distToAxis / (2.0 * sig * sig));
       intsec.glowAccum += glow * (next_depth * 0.01);
