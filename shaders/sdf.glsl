@@ -2,6 +2,7 @@
 struct SD {
   float dist;
   int ID;
+  bool glowing; // whether or not this object glows
 };
 
 SD sdUnion(SD a, SD b) {

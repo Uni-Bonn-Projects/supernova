@@ -24,9 +24,15 @@ const vec3 uLightColor = vec3(1.0);
 
 // colors
 const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
+const vec3 moonColor = vec3(0.96, 0.91, 0.77);
+const vec3 sunColor = vec3(0.98, 0.81, 0.32);
+const vec3 earthColor = vec3(0.0, 0.0, 0.62);
 
 const int SKY_ID = 0;
 const int STARSHIP_ID = 1;
+const int MOON_ID = 3;
+const int SUN_ID = 4;
+const int EARTH_ID = 5;
 
 #include "scene_construction.glsl"
 #include "sdf.glsl"
@@ -36,6 +42,7 @@ struct Intersection {
   float depth; // Current depth on the ray
   vec3 pos; // Current position on the ray
   int ID; // ID of the closest object
+  bool glowing; // whether or not the closest object "glows"
   int steps; // Number of steps taken
 };
 
@@ -58,16 +65,17 @@ vec3 proceduralSun(vec3 rayDir) {
   return pow(max(0.0, dot(rayDir, uLightDir)), 1000) * uLightColor;
 }
 
-float checkerPattern(vec3 pos) {
-  vec3 p = floor(pos);
-  return mod(p.x + p.y + p.z, 2.0);
-}
-
 /* Returns the color of the object ID at pos */
 vec3 colorScene(vec3 pos, int ID) {
   switch (ID) {
     case STARSHIP_ID:
     return starshipColor;
+    case MOON_ID:
+    return moonColor;
+    case SUN_ID:
+    return sunColor;
+    case EARTH_ID:
+    return earthColor;
     default:
     return vec3(1.0, 0.0, 0.0);
   }
@@ -88,6 +96,7 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
       0,
       rayOrigin,
       SKY_ID,
+      true,
       0
     );
 
@@ -104,6 +113,7 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
     SD sd = sdScene(intsec.pos);
     next_depth = sd.dist;
     intsec.ID = sd.ID;
+    intsec.glowing = sd.glowing;
 
     intsec.steps += 1;
   }
@@ -142,16 +152,26 @@ void main() {
     color = proceduralSky(rayDir) + proceduralSun(rayDir);
   } else {
     // We hit something
-    // The normal is the normalized gradient of the signed distance field
-    vec3 normal = normalScene(isec.pos);
-    // Lambert lighting term
-    vec3 lighting = max(dot(normal, uLightDir), 0.0) * uLightColor;
-    // Test if something lies between the hit point and the light source
-    float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+
+    vec3 intensity;
+    if (isec.glowing) {
+      intensity = vec3(1.0);
+    } else {
+      // The normal is the normalized gradient of the signed distance field
+      vec3 normal = normalScene(isec.pos);
+      // Lambert lighting term
+      vec3 lighting = max(dot(normal, uLightDir), 0.0) * uLightColor;
+      // Test if something lies between the hit point and the light source
+      float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+
+      intensity = lighting * shadow;
+    }
+
     // Get the color of the hit point
     vec3 albedo = colorScene(isec.pos, isec.ID);
+
     // Calculate lighting
-    color = (shadow * lighting) * albedo;
+    color = intensity * albedo;
   }
   // determine if we are drawing in a scanline
   float apply = abs(sin(gl_FragCoord.y) * 0.5 * uScan);
