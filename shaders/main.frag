@@ -30,6 +30,7 @@ const int STARSHIP_ID = 1;
 
 #include "scene_construction.glsl"
 #include "sdf.glsl"
+#include "math.glsl"
 
 struct Intersection {
   float depth; // Current depth on the ray
@@ -39,8 +40,18 @@ struct Intersection {
 };
 
 vec3 proceduralSky(vec3 rayDir) {
-  // TODO : render stars
-  return vec3(0.0);
+  const int star_amount = 1000; // not the actual amount
+
+  vec3 cell = floor(rayDir * star_amount);
+  float h = hash(cell);
+
+  if (h > 0.999) {
+    // Random brightness
+    float brightness = pow(hash(vec3(h)), 4.0);
+    return vec3(brightness);
+  } else {
+    return vec3(0.0);
+  }
 }
 
 vec3 proceduralSun(vec3 rayDir) {
