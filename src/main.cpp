@@ -18,6 +18,8 @@ using namespace glm;
 #include <unordered_map>
 #include <vector>
 
+#include "multifile_shaders.h"
+
 struct MainApp : public App {
   Program program;
   Mesh mesh;
@@ -41,7 +43,7 @@ struct MainApp : public App {
 
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
-    program.load("shaders/raygen.vert", "shaders/raymarch.frag");
+    load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
 
     // register objects
