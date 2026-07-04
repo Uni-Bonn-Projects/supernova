@@ -65,11 +65,6 @@ vec3 proceduralSun(vec3 rayDir) {
   return pow(max(0.0, dot(rayDir, uLightDir)), 1000) * uLightColor;
 }
 
-float checkerPattern(vec3 pos) {
-  vec3 p = floor(pos);
-  return mod(p.x + p.y + p.z, 2.0);
-}
-
 /* Returns the color of the object ID at pos */
 vec3 colorScene(vec3 pos, int ID) {
   switch (ID) {
