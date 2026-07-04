@@ -12,3 +12,8 @@ float hash(vec3 p3) {
   p3 += dot(p3, p3.zyx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
 }
+
+/** Returns a vector of length x pointing in dir */
+vec3 xInDir(float x, vec3 dir) {
+  return x * normalize(dir);
+}

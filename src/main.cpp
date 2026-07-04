@@ -27,11 +27,11 @@ struct MainApp : public App {
   AssetManager assetManager;
   CinematicDirector director;
   vec3 uLightDir = normalize(vec3(1.0));
-  float uNear = 0.1;
-  float uFar = 10'000.0;
+  float uNear = 1.0;
+  float uFar = 1'000'000.0;
   int uSteps = 1000;
   float uEpsilon = 0.0001;
-  float uNormalEps = 0.0001;
+  float uNormalEps = 0.1;
   bool uAutoCam = false;
   float uFlightTime = 0.0f;
   float uWarp = 0.75f;

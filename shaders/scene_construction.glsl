@@ -16,6 +16,9 @@ const float oldmanBottomWidth = 50.0;
 const float oldmanSectionHeight = 10.0;
 const float oldmanSectionWidth = 50.0;
 const float attackerSize = 2.5;
+const float moonSize = 3474.0;
+const float earthSize = 12756.0;
+const float earthMoonDist = 384400.0;
 
 float constructOldManSection(vec3 rayPos, vec3 spawnPos) {
   vec3 localPos = rayPos + spawnPos;
@@ -52,12 +55,12 @@ SD constructOldMan(vec3 rayPos, vec3 spawnPos) {
   float result = unionSDF(main_body, bottom_body);
   result = unionSDF(result, constructOldManSection(rayPos, spawnPos));
 
-  return SD(result, STARSHIP_ID);
+  return SD(result, STARSHIP_ID, false);
 }
 
 /* Returns the signed distance to the object nearest to pos */
 SD sdScene(vec3 pos) {
-  SD result = SD(Inf, SKY_ID);
+  SD result = SD(Inf, SKY_ID, true);
 
   if (u_oldman_active > 0.5) {
     vec3 scaledPos = pos / u_oldman_scale;
@@ -77,9 +80,25 @@ SD sdScene(vec3 pos) {
       attacker_vec = rotateY(attacker_vec, degToRad(i * (360 / 10)));
 
       float attacker = sdSphere(attacker_origin + attacker_vec, attackerSize * u_attacker_scale);
-      result = sdUnion(result, SD(attacker, STARSHIP_ID));
+      result = sdUnion(result, SD(attacker, STARSHIP_ID, false));
     }
   }
+
+  // moon
+  vec3 moonPos = pos + xInDir(10000, vec3(1, 2, 1));
+  result = sdUnion(result, SD(
+        sdSphere(moonPos, moonSize),
+        MOON_ID,
+        false
+      ));
+
+  // earth
+  vec3 earthPos = moonPos + xInDir(earthMoonDist, vec3(-0.2, -0.3, -1));
+  result = sdUnion(result, SD(
+        sdSphere(earthPos, earthSize),
+        EARTH_ID,
+        false
+      ));
 
   return result;
 }
