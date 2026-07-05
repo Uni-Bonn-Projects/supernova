@@ -12,7 +12,7 @@
 using namespace glm;
 
 struct Particles {
-  static const unsigned int AMOUNT = 1000;
+  static const unsigned int AMOUNT = 100'000;
   const float _INIT_LIFE = 5.0f; // initial time a particle lives
   unsigned int _last_unused = 0; // the last return value of get_unused
 
@@ -84,15 +84,12 @@ const std::string vertexShaderSource = R"(
 #version 410 core
 
 layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 offset;
 
 uniform mat4 viewProjection;
-uniform vec3 offsets[1000];
 
 void main() {
-    int id = gl_InstanceID;
-
-    vec3 worldPos = aPos + offsets[id];
-
+    vec3 worldPos = aPos + offset;
     gl_Position = viewProjection * vec4(worldPos, 1.0);
 }
 )";
@@ -112,12 +109,35 @@ struct MainApp : App {
   Mesh mesh;
   Camera camera;
 
+  GLuint offsetVBO;
+
   Particles particles;
 
   MainApp() : App(600, 500) {
     program.loadSource(vertexShaderSource, fragmentShaderSource);
 
     mesh.load(VERTICES, INDICES);
+    // add offset buffer at location = 1
+    {
+      // create the buffer
+      glGenBuffers(1, &offsetVBO);
+      glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(particles.pos), particles.pos,
+                   GL_DYNAMIC_DRAW);
+
+      // attach the buffer
+      mesh.vao.bind();
+      glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
+      glEnableVertexAttribArray(1);
+      glVertexAttribPointer(1, // location
+                            3, // vec3
+                            GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+
+      // Advance once per instance instead of once per vertex
+      glVertexAttribDivisor(1, 1);
+
+      glBindVertexArray(0);
+    }
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -126,7 +146,7 @@ struct MainApp : App {
   void spawnExplosion(const glm::vec3 &center) {
     const int DIRECTIONS = 100'000;
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10'000; i++) {
       vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
                       rand() - RAND_MAX / 2);
 
@@ -158,9 +178,9 @@ struct MainApp : App {
     program.use();
     program.set("viewProjection", VP);
 
-    // upload offsets array
-    GLint loc = program.uniform("offsets");
-    glUniform3fv(loc, particles.AMOUNT, &particles.pos[0].x);
+    // update offsets buffer
+    glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(particles.pos), particles.pos);
 
     mesh.draw(particles.AMOUNT);
   }
