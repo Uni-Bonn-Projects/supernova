@@ -37,6 +37,7 @@ struct MainApp : public App {
   float uWarp = 0.75f;
   float uScan = 0.75f;
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
+  bool uInLinearSpace = false;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -69,6 +70,7 @@ struct MainApp : public App {
     program.set("uWarp", uWarp);
     program.set("uScan", uScan);
     program.set("uResolution", resolution);
+    program.set("uInLinearSpace", uInLinearSpace);
     program.use();
   }
 
@@ -175,6 +177,9 @@ struct MainApp : public App {
     if (ImGui::SliderFloat("Camera move speed", &move_speed, 0.1, 100.0, "%.6f",
                            ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
+
+    if (ImGui::Checkbox("In linear space", &uInLinearSpace))
+      program.set("uInLinearSpace", uInLinearSpace);
 
     if (ImGui::Checkbox("Automatic Camera", &uAutoCam))
       uFlightTime = 0.0f;

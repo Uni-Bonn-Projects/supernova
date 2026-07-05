@@ -16,6 +16,7 @@ uniform float uNormalEps;
 uniform mat4 uCameraMatrix;
 uniform float uAspectRatio;
 uniform vec2 uResolution = vec2(800.0, 600.0);
+uniform bool uInLinearSpace;
 
 uniform float uWarp = 0.75; // simulate curvature of CRT monitor
 uniform float uScan = 0.75; // simulate darkness between scanlines
@@ -148,13 +149,17 @@ void main() {
 
   vec3 color;
   if (isec.depth >= uFar) {
-    // No hit, render a procedural sky background
-    color = proceduralSky(rayDir) + proceduralSun(rayDir);
+
+    // No hit, render a procedural background
+    if (uInLinearSpace) {
+    } else {
+      color = proceduralSky(rayDir) + proceduralSun(rayDir);
+    }
   } else {
     // We hit something
 
     vec3 intensity;
-    if (isec.glowing) {
+    if (isec.glowing || uInLinearSpace) {
       intensity = vec3(1.0);
     } else {
       // The normal is the normalized gradient of the signed distance field
