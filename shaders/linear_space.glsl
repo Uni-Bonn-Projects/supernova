@@ -282,3 +282,15 @@ float noise(vec3 xyz) {
 }
 
 // end: licensed code
+
+/** Returns the color to show, given a direction, when rendering the linear space */
+vec3 color_linear_space(vec3 rayDir) {
+  return normalize(
+    vec3(0.01) +
+      abs(vec3(
+          noise(rayDir),
+          noise(rayDir + vec3(7)),
+          noise(rayDir + vec3(13))
+        ))
+  );
+}

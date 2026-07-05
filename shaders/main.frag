@@ -38,6 +38,7 @@ const int EARTH_ID = 5;
 #include "scene_construction.glsl"
 #include "sdf.glsl"
 #include "math.glsl"
+#include "linear_space.glsl"
 
 struct Intersection {
   float depth; // Current depth on the ray
@@ -152,6 +153,7 @@ void main() {
 
     // No hit, render a procedural background
     if (uInLinearSpace) {
+      color = color_linear_space(rayDir);
     } else {
       color = proceduralSky(rayDir) + proceduralSun(rayDir);
     }
