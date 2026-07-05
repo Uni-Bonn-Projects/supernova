@@ -12,6 +12,7 @@ using namespace glm;
 
 struct Particles {
   static const unsigned int AMOUNT = 100'000;
+  const float RADIUS = 0.005f;
   const float _INIT_LIFE = 5.0f; // initial time a particle lives
   unsigned int _last_unused = 0; // the last return value of get_unused
 
@@ -64,14 +65,12 @@ struct Particles {
   }
 };
 
-const float PARTICLE_RADIUS = 0.05;
-
 // every particle is just a square
 const std::vector<float> VERTICES = {
-    -PARTICLE_RADIUS, -PARTICLE_RADIUS, 0.0f, // vertex 1
-    PARTICLE_RADIUS,  -PARTICLE_RADIUS, 0.0f, // vertex 2
-    -PARTICLE_RADIUS, PARTICLE_RADIUS,  0.0f, // vertex 3
-    PARTICLE_RADIUS,  PARTICLE_RADIUS,  0.0f, // vertex 4
+    -1.0f, -1.0f, 0.0f, // vertex 1
+    1.0f,  -1.0f, 0.0f, // vertex 2
+    -1.0f, 1.0f,  0.0f, // vertex 3
+    1.0f,  1.0f,  0.0f, // vertex 4
 };
 const std::vector<unsigned int> INDICES = {
     0, 1, 2, // triangle 1
@@ -183,7 +182,7 @@ struct MainApp : App {
     program.set("viewProjection", VP);
     program.set("cameraRight", camera_right);
     program.set("cameraUp", camera_up);
-    program.set("particleRadius", PARTICLE_RADIUS);
+    program.set("particleRadius", particles.RADIUS);
 
     // update offsets buffer
     glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
