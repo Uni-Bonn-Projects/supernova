@@ -6,7 +6,8 @@ project(
   VERSION 1.0
   LANGUAGES CXX)
 
-set(SRC src/main.cpp src/multifile_shaders.cpp)
+set(SRC # src/main.cpp src/multifile_shaders.cpp
+    src/particles.cpp)
 
 # install framework
 include(FetchContent)
