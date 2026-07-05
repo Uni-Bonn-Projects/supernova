@@ -85,10 +85,17 @@ layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 offset;
 
 uniform mat4 viewProjection;
+uniform vec3 cameraRight;
+uniform vec3 cameraUp;
+uniform float particleRadius;
 
 void main() {
     vec3 worldPos = aPos + offset;
-    gl_Position = viewProjection * vec4(worldPos, 1.0);
+    vec3 billboarded = offset
+                        + cameraRight * aPos.x * particleRadius
+                        + cameraUp * aPos.y * particleRadius;
+
+    gl_Position = viewProjection * vec4(billboarded, 1.0);
 }
 )";
 
@@ -166,15 +173,20 @@ struct MainApp : App {
   void render() override {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    float dt = App::delta;
+    updateParticles(App::delta);
 
     camera.update();
-    glm::mat4 VP = camera.projectionMatrix * camera.viewMatrix;
-
-    updateParticles(dt);
+    mat4 VP = camera.projectionMatrix * camera.viewMatrix;
+    vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
+                         camera.viewMatrix[2][0]};
+    vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
+                      camera.viewMatrix[2][1]};
 
     program.use();
     program.set("viewProjection", VP);
+    program.set("cameraRight", camera_right);
+    program.set("cameraUp", camera_up);
+    program.set("particleRadius", PARTICLE_RADIUS);
 
     // update offsets buffer
     glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
