@@ -64,7 +64,7 @@ struct Particles {
   }
 };
 
-const float PARTICLE_RADIUS = 0.01;
+const float PARTICLE_RADIUS = 0.05;
 
 // every particle is just a square
 const std::vector<float> VERTICES = {
@@ -149,13 +149,11 @@ struct MainApp : App {
   }
 
   void spawnExplosion(const glm::vec3 &center) {
-    const int DIRECTIONS = 100'000;
-
     for (int i = 0; i < 10'000; i++) {
       vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
                       rand() - RAND_MAX / 2);
 
-      particles.add(center, normalize(dir) * 1.0f);
+      particles.add(center, normalize(dir) * 0.5f);
     }
   }
 
