@@ -118,6 +118,7 @@ struct MainApp : App {
 
   MainApp() : App(600, 500) {
     program.loadSource(vertexShaderSource, fragmentShaderSource);
+    program.use();
 
     mesh.load(VERTICES, INDICES);
     // add offset buffer at location = 1
@@ -171,17 +172,17 @@ struct MainApp : App {
 
     updateParticles(App::delta);
 
-    camera.update();
-    mat4 VP = camera.projectionMatrix * camera.viewMatrix;
-    vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
-                         camera.viewMatrix[2][0]};
-    vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
-                      camera.viewMatrix[2][1]};
+    if (camera.updateIfChanged()) {
+      mat4 VP = camera.projectionMatrix * camera.viewMatrix;
+      vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
+                           camera.viewMatrix[2][0]};
+      vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
+                        camera.viewMatrix[2][1]};
+      program.set("viewProjection", VP);
+      program.set("cameraRight", camera_right);
+      program.set("cameraUp", camera_up);
+    }
 
-    program.use();
-    program.set("viewProjection", VP);
-    program.set("cameraRight", camera_right);
-    program.set("cameraUp", camera_up);
     program.set("particleRadius", particles.RADIUS);
 
     // update offsets buffer
