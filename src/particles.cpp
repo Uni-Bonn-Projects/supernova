@@ -90,7 +90,6 @@ uniform vec3 cameraUp;
 uniform float particleRadius;
 
 void main() {
-    vec3 worldPos = aPos + offset;
     vec3 billboarded = offset
                         + cameraRight * aPos.x * particleRadius
                         + cameraUp * aPos.y * particleRadius;
