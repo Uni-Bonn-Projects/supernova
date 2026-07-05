@@ -6,7 +6,6 @@
 #include "glm/fwd.hpp"
 #include <cassert>
 #include <cstdlib>
-#include <iostream>
 #include <vector>
 
 using namespace glm;
@@ -50,7 +49,6 @@ struct Particles {
     // and if we havent found any unused at this point, all particle must be
     // used
     _last_unused = 0;
-    std::cout << "particle cap reached" << std::endl;
     return 0;
   }
 
