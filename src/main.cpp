@@ -20,8 +20,7 @@ using namespace glm;
 
 #include "multifile_shaders.h"
 
-struct MainApp : public App
-{
+struct MainApp : public App {
   Program program;
   Mesh mesh;
   Camera camera;
@@ -40,11 +39,20 @@ struct MainApp : public App
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
   bool uInLinearSpace = false;
 
-  bool keys[(int)Key::MENU]; // "bit map" for all keys
+  bool uLaserActive = true;
+  vec3 uLaserStart = vec3(7.0f, -30.0f, -7.0f);
+  vec3 uLaserEnd = vec3(7.0f, 30.0f, -7.0f);
+  float uLaserRadius = 0.5f;
+  vec3 uLaserColor = vec3(0.1f, 0.4f, 1.0f); // blue halo
+  vec3 uLaserCoreColor = vec3(0.8f, 0.9f, 1.0f);
+  float uLaserGlowRadius = 3.0f; // no less than 50, 200 looks really good
+  float uLaserGlowIntensity =
+      1.0f; // Shoul be atleast 2.5, and not more than 4.0
+
+  bool keys[(int)Key::MENU];
   float move_speed = 1.0;
 
-  MainApp() : App(800, 600)
-  {
+  MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
@@ -73,32 +81,32 @@ struct MainApp : public App
     program.set("uScan", uScan);
     program.set("uResolution", resolution);
     program.set("uInLinearSpace", uInLinearSpace);
+    program.set("uLaserActive", uLaserActive);
+    program.set("uLaserStart", uLaserStart);
+    program.set("uLaserEnd", uLaserEnd);
+    program.set("uLaserRadius", uLaserRadius);
+    program.set("uLaserColor", uLaserColor);
+    program.set("uLaserCoreColor", uLaserCoreColor);
+    program.set("uLaserGlowRadius", uLaserGlowRadius);
+    program.set("uLaserGlowIntensity", uLaserGlowIntensity);
     program.use();
   }
 
-  void render() override
-  {
+  void render() override {
     // autocam
-    if (uAutoCam == true)
-    {
+    if (uAutoCam == true) {
       uFlightTime += App::delta;
       // spawn and despawn
-      if (uFlightTime >= 0.0f && uFlightTime < 25.0f)
-      {
+      if (uFlightTime >= 0.0f && uFlightTime < 25.0f) {
         assetManager.spawn("oldman", fightPos, 1.0f);
-      }
-      else
-      {
+      } else {
         assetManager.despawn("oldman");
       }
 
-      if (uFlightTime >= 6.0f && uFlightTime < 25.0f)
-      {
+      if (uFlightTime >= 6.0f && uFlightTime < 25.0f) {
         assetManager.spawn("attacker", fightPos + vec3(800.0f, 0.0f, 0.0f),
                            2.5f);
-      }
-      else
-      {
+      } else {
         assetManager.despawn("attacker");
       }
       // gets the smooth camera curve
@@ -109,46 +117,37 @@ struct MainApp : public App
       camera.invalidate();
 
       // end
-      if (uFlightTime > director.currentTimelineEnd)
-      {
+      if (uFlightTime > director.currentTimelineEnd) {
         uAutoCam = false;
         uFlightTime = 0.0f;
       }
     }
 
-    if (uAutoCam == false)
-    {
+    if (uAutoCam == false) {
       // move camera
       float actual_move_speed = move_speed;
-      if (keys[(int)Key::LEFT_SHIFT])
-      {
+      if (keys[(int)Key::LEFT_SHIFT]) {
         actual_move_speed *= 10;
       }
-      if (keys[(int)Key::W])
-      {
+      if (keys[(int)Key::W]) {
         camera.moveInEyeSpace(vec3(0.0, 0.0, -actual_move_speed));
       }
-      if (keys[(int)Key::A])
-      {
+      if (keys[(int)Key::A]) {
         camera.moveInEyeSpace(vec3(-actual_move_speed, 0.0, 0.0));
       }
-      if (keys[(int)Key::S])
-      {
+      if (keys[(int)Key::S]) {
         camera.moveInEyeSpace(vec3(0.0, 0.0, actual_move_speed));
       }
-      if (keys[(int)Key::D])
-      {
+      if (keys[(int)Key::D]) {
         camera.moveInEyeSpace(vec3(actual_move_speed, 0.0, 0.0));
       }
-      if (keys[(int)Key::SPACE])
-      {
+      if (keys[(int)Key::SPACE]) {
         vec3 camDelta = vec3(0.0, actual_move_speed, 0.0);
         camera.worldPosition += camDelta;
         camera.target += camDelta;
         camera.invalidate();
       }
-      if (keys[(int)Key::LEFT_CONTROL] || keys[(int)Key::C])
-      {
+      if (keys[(int)Key::LEFT_CONTROL] || keys[(int)Key::C]) {
         vec3 camDelta = vec3(0.0, -actual_move_speed, 0.0);
         camera.worldPosition += camDelta;
         camera.target += camDelta;
@@ -160,8 +159,7 @@ struct MainApp : public App
     assetManager.updateShaderUniforms(program);
 
     // Update camera information on change
-    if (camera.updateIfChanged())
-    {
+    if (camera.updateIfChanged()) {
       program.set("uCameraMatrix", camera.cameraMatrix);
       program.set("uAspectRatio", camera.aspectRatio);
       program.set("uFocalLength", camera.focalLength);
@@ -173,8 +171,7 @@ struct MainApp : public App
     mesh.draw();
   }
 
-  void buildImGui() override
-  {
+  void buildImGui() override {
     ImGui::StatisticsWindow(App::delta, App::resolution);
 
     // UI to control the uniforms
@@ -214,11 +211,31 @@ struct MainApp : public App
     if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
       program.set("uScan", uScan);
 
+    ImGui::SeparatorText("Big Blue Laser");
+    if (ImGui::Checkbox("Laser Active", &uLaserActive))
+      program.set("uLaserActive", uLaserActive);
+    if (ImGui::DragFloat3("Laser Start", value_ptr(uLaserStart), 5.0f))
+      program.set("uLaserStart", uLaserStart);
+    if (ImGui::DragFloat3("Laser End", value_ptr(uLaserEnd), 5.0f))
+      program.set("uLaserEnd", uLaserEnd);
+    if (ImGui::SliderFloat("Laser Radius", &uLaserRadius, 0.1f, 100.0f, "%.2f",
+                           ImGuiSliderFlags_Logarithmic))
+      program.set("uLaserRadius", uLaserRadius);
+    if (ImGui::ColorEdit3("Laser Glow Color", value_ptr(uLaserColor)))
+      program.set("uLaserColor", uLaserColor);
+    if (ImGui::ColorEdit3("Laser Core Color", value_ptr(uLaserCoreColor)))
+      program.set("uLaserCoreColor", uLaserCoreColor);
+    if (ImGui::SliderFloat("Laser Glow Radius", &uLaserGlowRadius, 0.5f, 200.0f,
+                           "%.2f", ImGuiSliderFlags_Logarithmic))
+      program.set("uLaserGlowRadius", uLaserGlowRadius);
+    if (ImGui::SliderFloat("Laser Glow Intensity", &uLaserGlowIntensity, 0.0f,
+                           5.0f))
+      program.set("uLaserGlowIntensity", uLaserGlowIntensity);
+
     ImGui::End();
   }
 
-  void keyCallback(Key key, Action action, Modifier modifier) override
-  {
+  void keyCallback(Key key, Action action, Modifier modifier) override {
     float speed = 10000.0;
 
     if (key == Key::ESC && action == Action::PRESS)
@@ -227,32 +244,26 @@ struct MainApp : public App
       App::imguiEnabled = !App::imguiEnabled;
 
     // update keys bit map
-    if (action == Action::PRESS)
-    {
+    if (action == Action::PRESS) {
       keys[(int)key] = true;
-    }
-    else if (action == Action::RELEASE)
-    {
+    } else if (action == Action::RELEASE) {
       keys[(int)key] = false;
     }
   }
 
   void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
-                    bool middleButton) override
-  {
+                    bool middleButton) override {
     if (rightButton | middleButton)
       camera.orbit(movement * 0.01f);
   }
 
-  void resizeCallback(const vec2 &resolution) override
-  {
+  void resizeCallback(const vec2 &resolution) override {
     camera.resize(resolution.x / resolution.y);
     program.set("uResolution", resolution);
   }
 };
 
-int main()
-{
+int main() {
 #ifndef NDEBUG
   // cd to parent directory when in debug mode to find resources
   std::filesystem::current_path(

@@ -9,6 +9,16 @@ uniform vec3 u_attacker_pos;
 uniform float u_attacker_active;
 uniform float u_attacker_scale;
 
+// big blue laser
+uniform bool uLaserActive;
+uniform vec3 uLaserStart;
+uniform vec3 uLaserEnd;
+uniform float uLaserRadius;
+uniform vec3 uLaserColor;       
+uniform vec3 uLaserCoreColor;
+uniform float uLaserGlowRadius;
+uniform float uLaserGlowIntensity;
+
 // everything in kilometers
 const float oldmanHeight = 100.0;
 const float oldmanWidth = 200.0;

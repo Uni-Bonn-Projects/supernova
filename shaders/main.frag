@@ -67,6 +67,52 @@ vec3 proceduralSun(vec3 rayDir) {
   return pow(max(0.0, dot(rayDir, uLightDir)), 1000) * uLightColor;
 }
 
+/* Purely volumetric laser halo — there is no solid SDF hit for the laser
+ * anymore, this is the only place it gets drawn. Returns (color, alpha):
+ * alpha is 1.0 on the beam axis and falls off exponentially with distance,
+ * so the caller does a plain alpha blend (mix) instead of adding light. */
+vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
+  if (!uLaserActive) return vec4(0.0);
+
+  // Closest ray parameter to the infinite beam line (used to centre the window).
+  vec3 ba = uLaserEnd - uLaserStart;
+  vec3 r = ro - uLaserStart;
+  float A = dot(rd, rd);
+  float B = dot(rd, ba);
+  float E = dot(ba, ba);
+  float C = dot(rd, r);
+  float F = dot(ba, r);
+  float denom = A * E - B * B;
+  float tc = (abs(denom) < 1e-6)
+      ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A
+      : (B * F - C * E) / denom;
+
+  float W = uLaserGlowRadius * 4.0; // half-window (km)
+  float t0 = max(uNear, tc - W);
+  float t1 = min(maxDepth, tc + W);
+  if (t1 <= t0) return vec4(0.0);
+
+  const int GLOW_STEPS = 32;
+  float dt = (t1 - t0) / float(GLOW_STEPS);
+  vec3 accumColor = vec3(0.0);
+  float accumAlpha = 0.0;
+  for (int i = 0; i < GLOW_STEPS; i++) {
+    vec3 p = ro + rd * (t0 + dt * (float(i) + 0.5));
+    float d = max(distToAxis(p, uLaserStart, uLaserEnd) - uLaserRadius, 0.0);
+    // alpha = 1 on the axis (d = 0), exponential falloff with distance
+    float sampleAlpha = exp(-(d * d) / (uLaserGlowRadius * uLaserGlowRadius));
+    // white-hot near the axis, fading to the blue halo color outward
+    vec3 sampleColor = mix(uLaserCoreColor, uLaserColor,
+        clamp(d / uLaserGlowRadius, 0.0, 1.0));
+
+    // front-to-back "over" compositing along the march window
+    float contribution = sampleAlpha * (1.0 - accumAlpha);
+    accumColor += sampleColor * contribution;
+    accumAlpha += contribution;
+  }
+  return vec4(accumColor, clamp(accumAlpha * uLaserGlowIntensity, 0.0, 1.0));
+}
+
 /* Returns the color of the object ID at pos */
 vec3 colorScene(vec3 pos, int ID) {
   switch (ID) {
@@ -180,6 +226,13 @@ void main() {
     // Calculate lighting
     color = intensity * albedo;
   }
+
+  // Volumetric halo of the laser, alpha-blended over the scene (glows against
+  // sky and geometry, occluded by whatever the primary ray hit first)
+  float glowMaxDepth = min(isec.depth, uFar);
+  vec4 glow = laserGlow(rayOrigin, rayDir, glowMaxDepth);
+  color = mix(color, glow.rgb, glow.a);
+
   // determine if we are drawing in a scanline
   float apply = abs(sin(gl_FragCoord.y) * 0.5 * uScan);
   // sample the texture

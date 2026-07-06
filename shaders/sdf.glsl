@@ -64,4 +64,18 @@ float sdBox(vec3 pos, vec3 size) {
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+// signed distance to a capsule
+float sdCapsule(vec3 pos, vec3 a, vec3 b, float radius) {
+  vec3 pa = pos - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - radius;
+}
+
+// unsigned distance from pos to the segment axi, used by the laser glow
+float distToAxis(vec3 pos, vec3 a, vec3 b) {
+  vec3 pa = pos - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
 // end: objects
