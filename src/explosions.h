@@ -33,7 +33,7 @@ struct Particles {
 class Explosions {
 public:
   void init(void);
-  void render(Camera &camera, float delta_time);
+  void render(Camera &camera, float delta_time, bool camera_changed);
   void spawn(const glm::vec3 &center);
 
 private:

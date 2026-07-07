@@ -1,7 +1,6 @@
 #include "framework/app.hpp"
 #include "framework/camera.hpp"
 #include "framework/gl/program.hpp"
-#include "framework/imguiutil.hpp"
 #include "framework/mesh.hpp"
 #include "glm/fwd.hpp"
 #include <cassert>
@@ -99,7 +98,6 @@ void Particles::add(vec3 particle_pos, vec3 particle_vel) {
 
 void Explosions::init(void) {
   _program.loadSource(vertexShaderSource, fragmentShaderSource);
-  _program.use();
 
   _mesh.load(VERTICES, INDICES);
 
@@ -131,10 +129,12 @@ void Explosions::init(void) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Explosions::render(Camera &camera, float delta_time) {
+void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
+  _program.use();
+
   _updateParticles(delta_time);
 
-  if (camera.updateIfChanged()) {
+  if (camera_changed) {
     mat4 VP = camera.projectionMatrix * camera.viewMatrix;
     vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
                          camera.viewMatrix[2][0]};
@@ -172,42 +172,4 @@ void Explosions::_updateParticles(float dt) {
       _particles.pos[i] = vec3(9999.0);
     }
   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//                                Example Code                               //
-///////////////////////////////////////////////////////////////////////////////
-
-struct MainApp : App {
-  Camera camera;
-  Explosions explosions;
-
-  MainApp() : App(600, 500) { explosions.init(); }
-
-  void render() override {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    explosions.render(camera, App::delta);
-  }
-
-  void buildImGui() override {
-    ImGui::StatisticsWindow(App::delta, App::resolution);
-  }
-
-  void keyCallback(Key key, Action action, Modifier modifier) override {
-    if (action == Action::PRESS)
-      explosions.spawn(vec3(0, 0, 0));
-  }
-
-  void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
-                    bool middleButton) override {
-    if (rightButton | middleButton)
-      camera.orbit(movement * 0.01f);
-  }
-};
-
-int main() {
-  MainApp app;
-  app.run();
-  return 0;
 }
