@@ -2,6 +2,7 @@
 #include "framework/camera.hpp"
 #include "framework/gl/program.hpp"
 #include "framework/mesh.hpp"
+#include "glm/common.hpp"
 #include "glm/fwd.hpp"
 #include <cassert>
 #include <cstdlib>
@@ -57,15 +58,10 @@ const std::string fragmentShaderSource = R"(
 //                                 Particles                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-Particles::Particles() {
-  for (auto &l : life) {
-    l = -1.0f;
-  }
-}
 unsigned int Particles::get_unused(void) {
   // start searching from the last returned pos
   for (auto i = _last_unused; i < AMOUNT; i++) {
-    if (life[i] < 0.0f) {
+    if (alive_prob[i] <= 0.0f) {
       _last_unused = i;
       return i;
     }
@@ -74,7 +70,7 @@ unsigned int Particles::get_unused(void) {
   // if we still not found any unused particle we search from the beginning
   // to _last_unused
   for (auto i = 0; i < _last_unused; i++) {
-    if (life[i] < 0.0f) {
+    if (alive_prob[i] <= 0.0f) {
       _last_unused = i;
       return i;
     }
@@ -85,11 +81,35 @@ unsigned int Particles::get_unused(void) {
   _last_unused = 0;
   return 0;
 }
-void Particles::add(vec3 particle_pos, vec3 particle_vel) {
+void Particles::add(vec3 particle_pos, vec3 particle_vel,
+                    float particle_max_duration) {
   auto i = get_unused();
   pos[i] = particle_pos;
   vel[i] = particle_vel;
-  life[i] = _INIT_LIFE;
+  max_duration[i] = particle_max_duration;
+  alive_prob[i] = 1.0;
+}
+
+void Particles::update(float delta_time) {
+  const vec3 the_ranch = vec3(999'999.0);
+
+  for (int i = 0; i < AMOUNT; i++) {
+    if (alive_prob[i] >= 0.0f) {
+      const float prob = (float)rand() / (1.2 * RAND_MAX);
+
+      if (prob <= alive_prob[i]) {
+        // particle lives on
+        alive_prob[i] -= delta_time / max_duration[i];
+        pos[i] += vel[i] * delta_time;
+      } else {
+        // particle has lost the lottery
+        alive_prob[i] = 0.0;
+        pos[i] = the_ranch;
+      }
+    } else {
+      pos[i] = the_ranch;
+    }
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,7 +152,7 @@ void Explosions::init(void) {
 void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
   _program.use();
 
-  _updateParticles(delta_time);
+  _particles.update(delta_time);
 
   if (camera_changed) {
     mat4 VP = camera.projectionMatrix * camera.viewMatrix;
@@ -154,22 +174,12 @@ void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
   _mesh.draw(_particles.AMOUNT);
 }
 
-void Explosions::spawn(const glm::vec3 &center) {
+void Explosions::spawn(const glm::vec3 &center, float duration) {
   for (int i = 0; i < 10'000; i++) {
     vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
                     rand() - RAND_MAX / 2);
 
-    _particles.add(center, normalize(dir) * 0.5f * ((float)rand() / RAND_MAX));
-  }
-}
-
-void Explosions::_updateParticles(float dt) {
-  for (int i = 0; i < _particles.AMOUNT; i++) {
-    if (_particles.life[i] > 0.0f) {
-      _particles.life[i] -= dt;
-      _particles.pos[i] += _particles.vel[i] * dt;
-    } else {
-      _particles.pos[i] = vec3(9999.0);
-    }
+    _particles.add(center, normalize(dir) * 0.5f * ((float)rand() / RAND_MAX),
+                   duration);
   }
 }

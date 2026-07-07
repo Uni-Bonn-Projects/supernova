@@ -224,7 +224,7 @@ struct MainApp : public App {
     }
 
     if (action == Action::PRESS) {
-      explosions.spawn(camera.worldPosition);
+      explosions.spawn(camera.worldPosition, 10.0);
     }
   }
 
