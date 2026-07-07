@@ -159,7 +159,7 @@ void Explosions::spawn(const glm::vec3 &center) {
     vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
                     rand() - RAND_MAX / 2);
 
-    _particles.add(center, normalize(dir) * 0.5f);
+    _particles.add(center, normalize(dir) * 0.5f * ((float)rand() / RAND_MAX));
   }
 }
 
