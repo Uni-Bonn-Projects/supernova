@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "particles.h"
+#include "explosions.h"
 
 using namespace glm;
 
@@ -180,7 +180,6 @@ void Explosions::_updateParticles(float dt) {
 
 struct MainApp : App {
   Camera camera;
-
   Explosions explosions;
 
   MainApp() : App(600, 500) { explosions.init(); }

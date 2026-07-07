@@ -7,7 +7,7 @@ project(
   LANGUAGES CXX)
 
 set(SRC # src/main.cpp src/multifile_shaders.cpp
-    src/particles.cpp)
+    src/explosions.cpp)
 
 # install framework
 include(FetchContent)
