@@ -33,12 +33,13 @@ struct Particles {
 class Explosions {
 public:
   void init(void);
-  void render(Program &program, Camera &camera, float delta_time);
+  void render(Camera &camera, float delta_time);
   void spawn(const glm::vec3 &center);
 
 private:
   void _updateParticles(float dt);
 
+  Program _program;
   Mesh _mesh;
   GLuint _offsetVBO;
   Particles _particles;

@@ -24,6 +24,36 @@ const std::vector<unsigned int> INDICES = {
     2, 1, 3, // triangle 2
 };
 
+const std::string vertexShaderSource = R"(
+  #version 410 core
+
+  layout(location = 0) in vec3 aPos;
+  layout(location = 1) in vec3 offset;
+
+  uniform mat4 viewProjection;
+  uniform vec3 cameraRight;
+  uniform vec3 cameraUp;
+  uniform float particleRadius;
+
+  void main() {
+      vec3 billboarded = offset
+                          + cameraRight * aPos.x * particleRadius
+                          + cameraUp * aPos.y * particleRadius;
+
+      gl_Position = viewProjection * vec4(billboarded, 1.0);
+  }
+)";
+
+const std::string fragmentShaderSource = R"(
+  #version 410 core
+
+  out vec4 color;
+
+  void main() {
+      color = vec4(1.0, 0.4, 0.1, 1.0); // orange explosion
+  }
+)";
+
 ///////////////////////////////////////////////////////////////////////////////
 //                                 Particles                                 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -68,6 +98,9 @@ void Particles::add(vec3 particle_pos, vec3 particle_vel) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void Explosions::init(void) {
+  _program.loadSource(vertexShaderSource, fragmentShaderSource);
+  _program.use();
+
   _mesh.load(VERTICES, INDICES);
 
   // add offset buffer at location = 1
@@ -98,7 +131,7 @@ void Explosions::init(void) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Explosions::render(Program &program, Camera &camera, float delta_time) {
+void Explosions::render(Camera &camera, float delta_time) {
   _updateParticles(delta_time);
 
   if (camera.updateIfChanged()) {
@@ -107,12 +140,12 @@ void Explosions::render(Program &program, Camera &camera, float delta_time) {
                          camera.viewMatrix[2][0]};
     vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
                       camera.viewMatrix[2][1]};
-    program.set("viewProjection", VP);
-    program.set("cameraRight", camera_right);
-    program.set("cameraUp", camera_up);
+    _program.set("viewProjection", VP);
+    _program.set("cameraRight", camera_right);
+    _program.set("cameraUp", camera_up);
   }
 
-  program.set("particleRadius", _particles.RADIUS);
+  _program.set("particleRadius", _particles.RADIUS);
 
   // update offsets buffer
   glBindBuffer(GL_ARRAY_BUFFER, _offsetVBO);
@@ -145,53 +178,17 @@ void Explosions::_updateParticles(float dt) {
 //                                Example Code                               //
 ///////////////////////////////////////////////////////////////////////////////
 
-const std::string vertexShaderSource = R"(
-#version 410 core
-
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 offset;
-
-uniform mat4 viewProjection;
-uniform vec3 cameraRight;
-uniform vec3 cameraUp;
-uniform float particleRadius;
-
-void main() {
-    vec3 billboarded = offset
-                        + cameraRight * aPos.x * particleRadius
-                        + cameraUp * aPos.y * particleRadius;
-
-    gl_Position = viewProjection * vec4(billboarded, 1.0);
-}
-)";
-
-const std::string fragmentShaderSource = R"(
-#version 410 core
-
-out vec4 color;
-
-void main() {
-    color = vec4(1.0, 0.4, 0.1, 1.0); // orange explosion
-}
-)";
 struct MainApp : App {
-  Program program;
-  Mesh mesh;
   Camera camera;
 
   Explosions explosions;
 
-  MainApp() : App(600, 500) {
-    program.loadSource(vertexShaderSource, fragmentShaderSource);
-    program.use();
-
-    explosions.init();
-  }
+  MainApp() : App(600, 500) { explosions.init(); }
 
   void render() override {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    explosions.render(program, camera, App::delta);
+    explosions.render(camera, App::delta);
   }
 
   void buildImGui() override {
