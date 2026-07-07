@@ -8,62 +8,9 @@
 #include <cstdlib>
 #include <vector>
 
+#include "particles.h"
+
 using namespace glm;
-
-struct Particles {
-  static const unsigned int AMOUNT = 100'000;
-  const float RADIUS = 0.005f;
-  const float _INIT_LIFE = 5.0f; // initial time a particle lives
-  unsigned int _last_unused = 0; // the last return value of get_unused
-
-  vec3 pos[AMOUNT];
-  vec3 vel[AMOUNT];
-  float life[AMOUNT];
-
-  Particles() {
-    for (auto &l : life) {
-      l = -1.0f;
-    }
-  }
-
-  /** Returns the index of an unused particle. (The dead ones)
-   * If none could be found, the first one is returned.
-   */
-  unsigned int get_unused(void) {
-    // start searching from the last returned pos
-    for (auto i = _last_unused; i < AMOUNT; i++) {
-      if (life[i] < 0.0f) {
-        _last_unused = i;
-        return i;
-      }
-    }
-
-    // if we still not found any unused particle we search from the beginning
-    // to _last_unused
-    for (auto i = 0; i < _last_unused; i++) {
-      if (life[i] < 0.0f) {
-        _last_unused = i;
-        return i;
-      }
-    }
-
-    // and if we havent found any unused at this point, all particle must be
-    // used
-    _last_unused = 0;
-    return 0;
-  }
-
-  /** Add a new particle.
-   * If the particle cap (Particle.AMOUNT) is reached, the first particle is
-   * overwritten.
-   */
-  void add(vec3 particle_pos, vec3 particle_vel) {
-    auto i = get_unused();
-    pos[i] = particle_pos;
-    vel[i] = particle_vel;
-    life[i] = _INIT_LIFE;
-  }
-};
 
 // every particle is just a square
 const std::vector<float> VERTICES = {
@@ -76,6 +23,127 @@ const std::vector<unsigned int> INDICES = {
     0, 1, 2, // triangle 1
     2, 1, 3, // triangle 2
 };
+
+///////////////////////////////////////////////////////////////////////////////
+//                                 Particles                                 //
+///////////////////////////////////////////////////////////////////////////////
+
+Particles::Particles() {
+  for (auto &l : life) {
+    l = -1.0f;
+  }
+}
+unsigned int Particles::get_unused(void) {
+  // start searching from the last returned pos
+  for (auto i = _last_unused; i < AMOUNT; i++) {
+    if (life[i] < 0.0f) {
+      _last_unused = i;
+      return i;
+    }
+  }
+
+  // if we still not found any unused particle we search from the beginning
+  // to _last_unused
+  for (auto i = 0; i < _last_unused; i++) {
+    if (life[i] < 0.0f) {
+      _last_unused = i;
+      return i;
+    }
+  }
+
+  // and if we havent found any unused at this point, all particle must be
+  // used
+  _last_unused = 0;
+  return 0;
+}
+void Particles::add(vec3 particle_pos, vec3 particle_vel) {
+  auto i = get_unused();
+  pos[i] = particle_pos;
+  vel[i] = particle_vel;
+  life[i] = _INIT_LIFE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//                                 Explosions                                //
+///////////////////////////////////////////////////////////////////////////////
+
+void Explosions::init(void) {
+  _mesh.load(VERTICES, INDICES);
+
+  // add offset buffer at location = 1
+  {
+    // create the buffer
+    glGenBuffers(1, &_offsetVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, _offsetVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(_particles.pos), _particles.pos,
+                 GL_DYNAMIC_DRAW);
+
+    // attach the buffer
+    _mesh.vao.bind();
+    glBindBuffer(GL_ARRAY_BUFFER, _offsetVBO);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, // location
+                          3, // vec3
+                          GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+
+    // Advance once per instance instead of once per vertex
+    glVertexAttribDivisor(1, 1);
+
+    glBindVertexArray(0);
+  }
+
+  // enable some other opengl features
+  // TODO: really required?
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void Explosions::render(Program &program, Camera &camera, float delta_time) {
+  _updateParticles(delta_time);
+
+  if (camera.updateIfChanged()) {
+    mat4 VP = camera.projectionMatrix * camera.viewMatrix;
+    vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
+                         camera.viewMatrix[2][0]};
+    vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
+                      camera.viewMatrix[2][1]};
+    program.set("viewProjection", VP);
+    program.set("cameraRight", camera_right);
+    program.set("cameraUp", camera_up);
+  }
+
+  program.set("particleRadius", _particles.RADIUS);
+
+  // update offsets buffer
+  glBindBuffer(GL_ARRAY_BUFFER, _offsetVBO);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(_particles.pos), _particles.pos);
+
+  _mesh.draw(_particles.AMOUNT);
+}
+
+void Explosions::spawn(const glm::vec3 &center) {
+  for (int i = 0; i < 10'000; i++) {
+    vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
+                    rand() - RAND_MAX / 2);
+
+    _particles.add(center, normalize(dir) * 0.5f);
+  }
+}
+
+void Explosions::_updateParticles(float dt) {
+  for (int i = 0; i < _particles.AMOUNT; i++) {
+    if (_particles.life[i] > 0.0f) {
+      _particles.life[i] -= dt;
+      _particles.pos[i] += _particles.vel[i] * dt;
+    } else {
+      _particles.pos[i] = vec3(9999.0);
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//                                Example Code                               //
+///////////////////////////////////////////////////////////////////////////////
 
 const std::string vertexShaderSource = R"(
 #version 410 core
@@ -106,90 +174,24 @@ void main() {
     color = vec4(1.0, 0.4, 0.1, 1.0); // orange explosion
 }
 )";
-
 struct MainApp : App {
   Program program;
   Mesh mesh;
   Camera camera;
 
-  GLuint offsetVBO;
-
-  Particles particles;
+  Explosions explosions;
 
   MainApp() : App(600, 500) {
     program.loadSource(vertexShaderSource, fragmentShaderSource);
     program.use();
 
-    mesh.load(VERTICES, INDICES);
-    // add offset buffer at location = 1
-    {
-      // create the buffer
-      glGenBuffers(1, &offsetVBO);
-      glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
-      glBufferData(GL_ARRAY_BUFFER, sizeof(particles.pos), particles.pos,
-                   GL_DYNAMIC_DRAW);
-
-      // attach the buffer
-      mesh.vao.bind();
-      glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
-      glEnableVertexAttribArray(1);
-      glVertexAttribPointer(1, // location
-                            3, // vec3
-                            GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
-
-      // Advance once per instance instead of once per vertex
-      glVertexAttribDivisor(1, 1);
-
-      glBindVertexArray(0);
-    }
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  }
-
-  void spawnExplosion(const glm::vec3 &center) {
-    for (int i = 0; i < 10'000; i++) {
-      vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
-                      rand() - RAND_MAX / 2);
-
-      particles.add(center, normalize(dir) * 0.5f);
-    }
-  }
-
-  void updateParticles(float dt) {
-    for (int i = 0; i < particles.AMOUNT; i++) {
-      if (particles.life[i] > 0.0f) {
-        particles.life[i] -= dt;
-        particles.pos[i] += particles.vel[i] * dt;
-      } else {
-        particles.pos[i] = vec3(9999.0);
-      }
-    }
+    explosions.init();
   }
 
   void render() override {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    updateParticles(App::delta);
-
-    if (camera.updateIfChanged()) {
-      mat4 VP = camera.projectionMatrix * camera.viewMatrix;
-      vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
-                           camera.viewMatrix[2][0]};
-      vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
-                        camera.viewMatrix[2][1]};
-      program.set("viewProjection", VP);
-      program.set("cameraRight", camera_right);
-      program.set("cameraUp", camera_up);
-    }
-
-    program.set("particleRadius", particles.RADIUS);
-
-    // update offsets buffer
-    glBindBuffer(GL_ARRAY_BUFFER, offsetVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(particles.pos), particles.pos);
-
-    mesh.draw(particles.AMOUNT);
+    explosions.render(program, camera, App::delta);
   }
 
   void buildImGui() override {
@@ -198,7 +200,7 @@ struct MainApp : App {
 
   void keyCallback(Key key, Action action, Modifier modifier) override {
     if (action == Action::PRESS)
-      spawnExplosion(vec3(0, 0, 0));
+      explosions.spawn(vec3(0, 0, 0));
   }
 
   void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
