@@ -21,8 +21,9 @@ uniform bool uInLinearSpace;
 uniform float uWarp = 0.75; // simulate curvature of CRT monitor
 uniform float uScan = 0.75; // simulate darkness between scanlines
 
-uniform int uMotionBlurSamples = 2;
-uniform float uMotionBlurStrength = 0.01;
+uniform float uFocusDistance = 500.0;
+uniform int uFocusSamples = 4;
+uniform float uApertureSize = 5; // size of hole in pinhole camera
 
 const vec3 uLightColor = vec3(1.0);
 
@@ -126,11 +127,21 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
   return intsec;
 }
 
-vec3 renderAt(vec2 ndc) {
+vec3 renderAt(vec2 ndc, vec2 offset) {
   vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); // Renormalize after interpolation (with crt)
   vec3 rayOrigin = uCameraPosition;
 
-  Intersection isec = raymarchScene(rayOrigin, rayDir, uNear, uFar);
+  vec3 focusPoint = uCameraPosition + rayDir * uFocusDistance;
+  
+  // shifted focusPoint
+  vec3 x = normalize(mat3(uCameraMatrix) * vec3(1.0, 0.0, 0.0));
+  vec3 y = normalize(mat3(uCameraMatrix) * vec3(0.0, 1.0, 0.0));
+  vec3 shiftedEye = uCameraPosition + x * offset.x + y * offset.y;
+  
+  // new ray
+  vec3 shiftedRayDir = normalize(focusPoint - shiftedEye);
+
+  Intersection isec = raymarchScene(shiftedEye, shiftedRayDir, uNear, uFar);
 
   vec3 color;
   if (isec.depth >= uFar) {
@@ -187,19 +198,23 @@ void main() {
   // warp uv from (0.0, 1.0) to (-1.0, 1.0)
   vec2 ndc = uv * 2.0 - 1.0;
 
-  // motion blur
-  // sample multiple slightly offset ray directions
+  // focus blur
   vec3 color = vec3(0.0);
-  for (int i = 0; i < uMotionBlurSamples; i++) {
-    // normalize between 0.0 and 1.0
-    float t = float(i) / float(max(uMotionBlurSamples - 1, 1));
-    // from 0.0 and 1.0 to -0.5 and 0.5 scaled with strength
-    float offset = (t - 0.5) * uMotionBlurStrength;
-    // ndc with motionblur offset , y-achse slightly less
-    color += renderAt(ndc + vec2(offset, offset * 0.5));
+  // nothing
+  if (uFocusSamples <= 1) {
+    color = renderAt(ndc, vec2(0.0));
+  } else {
+  for (int i = 0; i < uFocusSamples; i++) {
+    // angles in 360° with 2 pi
+    float angle = float(i) / float(uFocusSamples) * 6.28318;
+    float radius = uApertureSize * sqrt(float(i) / float(max(uFocusSamples - 1, 1)));
+    vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+
+    // ndc with fucus blur offset
+    color += renderAt(ndc, offset);
   }
-  // takes average so pixel isnt 4x bright
-  color /= float(uMotionBlurSamples);
+  color /= float(uFocusSamples);
+  }
 
   // determine if we are drawing in a scanline
   float apply = abs(sin(gl_FragCoord.y) * 0.5 * uScan);

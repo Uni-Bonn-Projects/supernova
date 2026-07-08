@@ -38,8 +38,9 @@ struct MainApp : public App {
   float uScan = 0.75f;
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
   bool uInLinearSpace = false;
-  int uMotionBlurSamples = 2;
-  float uMotionBlurStrength = 0.01f;
+  float uFocusDistance = 500.0f;
+  float uApertureSize = 5.0f;
+  int uFocusSamples = 4;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -73,8 +74,9 @@ struct MainApp : public App {
     program.set("uScan", uScan);
     program.set("uResolution", resolution);
     program.set("uInLinearSpace", uInLinearSpace);
-    program.set("uMotionBlurSamples", uMotionBlurSamples);
-    program.set("uMotionBlurStrength", uMotionBlurStrength);
+    program.set("uFocusDistance", uFocusDistance);
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
     program.use();
   }
 
@@ -196,11 +198,14 @@ struct MainApp : public App {
       program.set("uWarp", uWarp);
     if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
       program.set("uScan", uScan);
-    if (ImGui::SliderInt("Motion Blur Samples", &uMotionBlurSamples, 1, 8))
-      program.set("uMotionBlurSamples", uMotionBlurSamples);
-    if (ImGui::SliderFloat("Motion Blur Strength", &uMotionBlurStrength, 0.0f,
-                           0.05f, "%.4f"))
-      program.set("uMotionBlurStrength", uMotionBlurStrength);
+    if (ImGui::SliderFloat("Focus Distance", &uFocusDistance, 1.0f, 2000.0f,
+                           "%.1f"))
+      program.set("uFocusDistance", uFocusDistance);
+    if (ImGui::SliderFloat("Aperture Size", &uApertureSize, 0.0f, 50.0f,
+                           "%.3f"))
+      program.set("uApertureSize", uApertureSize);
+    if (ImGui::SliderInt("Focus Samples", &uFocusSamples, 1, 8))
+      program.set("uFocusSamples", uFocusSamples);
     ImGui::End();
   }
 
