@@ -21,6 +21,9 @@ uniform bool uInLinearSpace;
 uniform float uWarp = 0.75; // simulate curvature of CRT monitor
 uniform float uScan = 0.75; // simulate darkness between scanlines
 
+uniform int uMotionBlurSamples = 2;
+uniform float uMotionBlurStrength = 0.01;
+
 const vec3 uLightColor = vec3(1.0);
 
 // colors
@@ -123,27 +126,8 @@ Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
   return intsec;
 }
 
-void main() {
-  // squared distance from center
-  vec2 uv = gl_FragCoord.xy / uResolution;
-  vec2 dc = abs(0.5 - uv);
-  dc *= dc;
-  // warp the fragment coordinates
-  uv.x -= 0.5;
-  uv.x *= 1.0 + (dc.y * (0.3 * uWarp));
-  uv.x += 0.5;
-  uv.y -= 0.5;
-  uv.y *= 1.0 + (dc.x * (0.4 * uWarp));
-  uv.y += 0.5;
-  // sample outside boundaries set to black
-  if (uv.y > 1.0 || uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0) {
-    fragColor = vec3(0.0);
-    return;
-  }
-  // warp uv from (0.0, 1.0) to (-1.0, 1.0)
-  vec2 ndc = uv * 2.0 - 1.0;
-
-  vec3 rayDir = normalize(viewDir); // Renormalize after interpolation
+vec3 renderAt(vec2 ndc) {
+  vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); // Renormalize after interpolation (with crt)
   vec3 rayOrigin = uCameraPosition;
 
   Intersection isec = raymarchScene(rayOrigin, rayDir, uNear, uFar);
@@ -180,6 +164,43 @@ void main() {
     // Calculate lighting
     color = intensity * albedo;
   }
+  return color;
+}
+
+void main() {
+  // squared distance from center
+  vec2 uv = gl_FragCoord.xy / uResolution;
+  vec2 dc = abs(0.5 - uv);
+  dc *= dc;
+  // warp the fragment coordinates
+  uv.x -= 0.5;
+  uv.x *= 1.0 + (dc.y * (0.3 * uWarp));
+  uv.x += 0.5;
+  uv.y -= 0.5;
+  uv.y *= 1.0 + (dc.x * (0.4 * uWarp));
+  uv.y += 0.5;
+  // sample outside boundaries set to black
+  if (uv.y > 1.0 || uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0) {
+    fragColor = vec3(0.0);
+    return;
+  }
+  // warp uv from (0.0, 1.0) to (-1.0, 1.0)
+  vec2 ndc = uv * 2.0 - 1.0;
+
+  // motion blur
+  // sample multiple slightly offset ray directions
+  vec3 color = vec3(0.0);
+  for (int i = 0; i < uMotionBlurSamples; i++) {
+    // normalize between 0.0 and 1.0
+    float t = float(i) / float(max(uMotionBlurSamples - 1, 1));
+    // from 0.0 and 1.0 to -0.5 and 0.5 scaled with strength
+    float offset = (t - 0.5) * uMotionBlurStrength;
+    // ndc with motionblur offset , y-achse slightly less
+    color += renderAt(ndc + vec2(offset, offset * 0.5));
+  }
+  // takes average so pixel isnt 4x bright
+  color /= float(uMotionBlurSamples);
+
   // determine if we are drawing in a scanline
   float apply = abs(sin(gl_FragCoord.y) * 0.5 * uScan);
   // sample the texture
