@@ -163,16 +163,20 @@ struct MainApp : public App {
       program.set("uAspectRatio", camera.aspectRatio);
       program.set("uFocalLength", camera.focalLength);
       program.set("uCameraPosition", camera.worldPosition);
+      // change focus distanz to current position
+      uFocusDistance =
+          max(100.0f, glm::distance(camera.worldPosition, camera.target));
+      program.set("uFocusDistance", uFocusDistance);
     }
 
     // We already bind the program in the constructor, so we don't need to bind
     // it again here
     mesh.draw();
 
-    // focus blur only during explosion
     explosions.render(camera, App::delta, camera_changed);
+    // focus blur only during explosion
     if (explosions.isActive()) {
-      uApertureSize = 5.0f;
+      uApertureSize = 15.0f;
       uFocusSamples = 4;
     } else {
       // goes down slowly instead of instantly
