@@ -18,6 +18,7 @@ using namespace glm;
 #include <unordered_map>
 #include <vector>
 
+#include "explosions.h"
 #include "multifile_shaders.h"
 
 struct MainApp : public App {
@@ -25,7 +26,10 @@ struct MainApp : public App {
   Mesh mesh;
   Camera camera;
   AssetManager assetManager;
+
   CinematicDirector director;
+  Explosions explosions;
+
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 1.0;
   float uFar = 1'000'000.0;
@@ -78,9 +82,15 @@ struct MainApp : public App {
     program.set("uApertureSize", uApertureSize);
     program.set("uFocusSamples", uFocusSamples);
     program.use();
+
+    explosions.init();
   }
 
   void render() override {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    program.use();
+
     // autocam
     if (uAutoCam == true) {
       uFlightTime += App::delta;
@@ -147,7 +157,8 @@ struct MainApp : public App {
     assetManager.updateShaderUniforms(program);
 
     // Update camera information on change
-    if (camera.updateIfChanged()) {
+    bool camera_changed = camera.updateIfChanged();
+    if (camera_changed) {
       program.set("uCameraMatrix", camera.cameraMatrix);
       program.set("uAspectRatio", camera.aspectRatio);
       program.set("uFocalLength", camera.focalLength);
@@ -157,6 +168,8 @@ struct MainApp : public App {
     // We already bind the program in the constructor, so we don't need to bind
     // it again here
     mesh.draw();
+
+    explosions.render(camera, App::delta, camera_changed);
   }
 
   void buildImGui() override {
@@ -222,6 +235,10 @@ struct MainApp : public App {
       keys[(int)key] = true;
     } else if (action == Action::RELEASE) {
       keys[(int)key] = false;
+    }
+
+    if (action == Action::PRESS) {
+      explosions.spawn(camera.worldPosition, 10.0);
     }
   }
 
