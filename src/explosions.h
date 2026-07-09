@@ -36,6 +36,7 @@ public:
   void init(void);
   void render(Camera &camera, float delta_time, bool camera_changed);
   void spawn(const glm::vec3 &center, float duration);
+  bool isActive(void);
 
 private:
   Program _program;

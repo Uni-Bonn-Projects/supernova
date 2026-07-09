@@ -43,8 +43,8 @@ struct MainApp : public App {
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
   bool uInLinearSpace = false;
   float uFocusDistance = 500.0f;
-  float uApertureSize = 5.0f;
-  int uFocusSamples = 4;
+  float uApertureSize = 0.0f;
+  int uFocusSamples = 1;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
@@ -169,7 +169,20 @@ struct MainApp : public App {
     // it again here
     mesh.draw();
 
+    // focus blur only during explosion
     explosions.render(camera, App::delta, camera_changed);
+    if (explosions.isActive()) {
+      uApertureSize = 5.0f;
+      uFocusSamples = 4;
+    } else {
+      // goes down slowly instead of instantly
+      // glm::mix(a, b, c) = a + (b - a) * c
+      uApertureSize = glm::mix(uApertureSize, 0.0f, 0.05f);
+      uFocusSamples = uApertureSize < 0.1f ? 1 : 4;
+    }
+    // after every frame
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
   }
 
   void buildImGui() override {

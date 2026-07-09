@@ -178,3 +178,11 @@ void Explosions::spawn(const glm::vec3 &center, float duration) {
                    duration);
   }
 }
+
+bool Explosions::isActive(void) {
+  for (int i = 0; i < _particles.AMOUNT; i++) {
+    if (_particles.alive_prob[i] > 0.0f)
+      return true;
+  }
+  return false;
+}
