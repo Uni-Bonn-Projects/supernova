@@ -46,6 +46,41 @@ vec3 intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2) {
   }
 }
 
+/// Calculate the distance to the given procedual Sphere
+///
+/// It is assumed that rayDir is normalized.
+float procedualSphere(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  vec3 spherePos,
+  float sphereRadius
+) {
+  vec3 oToSP = rayOrigin - spherePos; // rayOrigin to SpherePos
+  float h = dot(oToSP, rayDir); // result we use a lot
+
+  // no result if rhs would need an imaginary number
+  float sqrt_inner = h * h - dot(oToSP, oToSP) + sphereRadius * sphereRadius;
+  if (sqrt_inner < 0.0) {
+    return INF;
+  }
+
+  // left and right side of the quadratic formula (seperator is the +-)
+  float lhs = -h;
+  float rhs = sqrt(sqrt_inner);
+
+  // use x1 if is infront of the camera
+  // use x2 else
+  float x = lhs + rhs;
+  if (x < 0.0) {
+    x = lhs - rhs;
+  }
+
+  // return the selected x if it is in front of the camera
+  // no result else
+  // (both x's can be behind the camera)
+  return (x >= 0) ? x : INF;
+}
+
 void main() {
   // Generate camera ray
   vec3 rayDir = normalize(viewDir); // Renormalize after interpolation
@@ -88,5 +123,15 @@ void main() {
       if (uView == 2u) fragColor = vec3(1.0 - (depth / uFar));
       if (uView == 3u) fragColor = barycentrics;
     }
+  }
+
+  // procedual stuff
+  // (only a shere for now)
+  vec3 sphere_pos = vec3(60, 20, 20);
+  float sphere_radius = 10;
+
+  float result = procedualSphere(rayOrigin, rayDir, sphere_pos, sphere_radius);
+  if (result < depth) {
+    fragColor = vec3(1.0, 1.0, 0.0);
   }
 }
