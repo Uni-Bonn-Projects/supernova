@@ -1,25 +1,29 @@
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#include <imgui.h>
+
 #include <glad/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-using namespace glm;
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
-#include <imgui.h>
-
-#include <cinematic.cpp>
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
-
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include <framework/objparser.hpp>
 
 #include "explosions.h"
 #include "multifile_shaders.h"
+
+#include "cinematic.cpp" // source file import?
+
+using namespace glm;
 
 struct MainApp : public App {
   Program program;
@@ -49,6 +53,30 @@ struct MainApp : public App {
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
 
+  void loadObj(Program &program, const std::string &filename) {
+    std::vector<Mesh::VertexPTN> vertices;
+    std::vector<unsigned int> indices;
+    ObjParser::parse(filename, vertices, indices);
+
+    // Output mesh size
+    GLuint triangleCount = indices.size() / 3;
+
+    // Pass the vertices to the shader as vec4 array
+    // Each vertex is 2 vec4s arranged as:
+    // (vec4(Px, Py, Pz, Cx), vec4(Cy, Nx, Ny, Nz)) with P = Position, C =
+    // Texture Coordinate, N = Normal
+    glProgramUniform4fv(program.handle, program.uniform("uVertices"),
+                        vertices.size() * 2, value_ptr(vertices[0].position));
+
+    // Pass the indices to the shader as uvec3 array, each uvec3 being a
+    // triangle
+    glProgramUniform3uiv(program.handle, program.uniform("uIndices"),
+                         triangleCount, indices.data());
+
+    // Pass triangle count to the shader
+    program.set("uTriangleCount", triangleCount);
+  }
+
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
@@ -68,6 +96,7 @@ struct MainApp : public App {
                           201.0f);
 
     // Init uniforms
+    program.set("uLightColor", vec3(1.0));
     program.set("uLightDir", uLightDir);
     program.set("uNear", uNear);
     program.set("uFar", uFar);
@@ -81,6 +110,7 @@ struct MainApp : public App {
     program.set("uFocusDistance", uFocusDistance);
     program.set("uApertureSize", uApertureSize);
     program.set("uFocusSamples", uFocusSamples);
+    loadObj(program, "meshes/lowpolysphere.obj");
     program.use();
 
     explosions.init();

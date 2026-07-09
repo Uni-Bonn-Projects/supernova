@@ -1,3 +1,5 @@
+#line 2
+
 // begin: licensed code
 
 //
