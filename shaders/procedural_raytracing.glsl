@@ -1,6 +1,7 @@
+#include "colors.glsl"
 #include "math.glsl"
 #include "uniforms.glsl"
-#line 4
+#line 5
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// BACKGROUND //////////////////////////////////
@@ -91,7 +92,25 @@ vec4 proceduralScene(
 
   float result = proceduralSphere(rayOrigin, rayDir, sphere_pos, sphere_radius);
   if (result < depth) {
-    color = vec3(1.0, 1.0, 0.0);
+    vec3 intensity;
+    if (uInLinearSpace) {
+      intensity = vec3(1.0);
+    } else {
+      vec3 hitPos = rayOrigin + result * rayDir;
+      vec3 normal = normalize(hitPos - sphere_pos);
+
+      // Lambert lighting term
+      vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
+
+      // Test if something lies between the hit point and the light source
+      // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+      float shadow = 1.0; // FIXME: proper shadows
+
+      intensity = lighting * shadow;
+    }
+
+    // Calculate lighting
+    color = intensity * moonColor;
   }
 
   return vec4(depth, color);
