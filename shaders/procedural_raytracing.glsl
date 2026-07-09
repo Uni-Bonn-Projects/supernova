@@ -72,4 +72,27 @@ float proceduralSphere(
 //////////////////////////////////// SCENE /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// vec3 proceduralScene()
+/// Performs raytracing on all of the procedural geometry
+///
+/// Returned will be a "tuple": (depth, color)
+vec4 proceduralScene(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  float current_depth,
+  vec3 background_color
+) {
+  float depth = current_depth;
+  vec3 color = background_color;
+
+  // procedual stuff
+  // (only a shere for now)
+  vec3 sphere_pos = vec3(60, 20, 20);
+  float sphere_radius = 10;
+
+  float result = proceduralSphere(rayOrigin, rayDir, sphere_pos, sphere_radius);
+  if (result < depth) {
+    color = vec3(1.0, 1.0, 0.0);
+  }
+
+  return vec4(depth, color);
+}

@@ -1,10 +1,16 @@
 #include "colors.glsl"
 #include "math.glsl"
-#include "procedural.glsl"
+#include "procedural_raytracing.glsl"
 #include "uniforms.glsl"
 #line 6
 
-vec3 intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2) {
+vec3 intersectTriangle(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  vec3 v0,
+  vec3 v1,
+  vec3 v2
+) {
   // edges
   vec3 e1 = v1 - v0;
   vec3 e2 = v2 - v0;
@@ -32,7 +38,13 @@ vec3 intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2) {
 /// OLDMAN.
 ///
 /// Returned will be a "tuple": (depth, color)
-vec4 raytraceOldman(vec3 rayOrigin, vec3 rayDir, float depth, vec3 background_color) {
+vec4 raytraceOldman(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  float current_depth,
+  vec3 background_color
+) {
+  float depth = current_depth;
   vec3 color = background_color;
 
   // Loop through each triangle uIndices[i].xyz
@@ -90,14 +102,11 @@ vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color) {
     color = result.yzw;
   }
 
-  // procedual stuff
-  // (only a shere for now)
-  vec3 sphere_pos = vec3(60, 20, 20);
-  float sphere_radius = 10;
-
-  float result = proceduralSphere(rayOrigin, rayDir, sphere_pos, sphere_radius);
-  if (result < depth) {
-    color = vec3(1.0, 1.0, 0.0);
+  // render procedural stuff
+  {
+    vec4 result = proceduralScene(rayOrigin, rayDir, depth, color);
+    depth = result.x;
+    color = result.yzw;
   }
 
   return color;

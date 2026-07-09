@@ -3,7 +3,7 @@
 in vec3 viewDir;
 out vec3 fragColor;
 
-#include "procedural.glsl"
+#include "procedural_raytracing.glsl"
 #include "raytracing.glsl"
 #include "uniforms.glsl"
 #include "linear_space.glsl"
