@@ -1,15 +1,16 @@
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#include <imgui.h>
+
 #include <glad/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
-using namespace glm;
 
-#include <imgui.h>
-
-#include <cinematic.cpp>
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
@@ -17,13 +18,12 @@ using namespace glm;
 #include <framework/mesh.hpp>
 #include <framework/objparser.hpp>
 
-#include <iostream>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
 #include "explosions.h"
 #include "multifile_shaders.h"
+
+#include "cinematic.cpp" // source file import?
+
+using namespace glm;
 
 struct MainApp : public App {
   Program program;
