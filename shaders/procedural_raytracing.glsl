@@ -57,9 +57,9 @@ float proceduralSphere(
 
   // use x1 if is infront of the camera
   // use x2 else
-  float x = lhs + rhs;
+  float x = lhs - rhs;
   if (x < 0.0) {
-    x = lhs - rhs;
+    x = lhs + rhs;
   }
 
   // return the selected x if it is in front of the camera
