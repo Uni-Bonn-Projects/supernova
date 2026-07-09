@@ -3,179 +3,35 @@
 in vec3 viewDir;
 out vec3 fragColor;
 
-uniform vec3 uCameraPosition;
-uniform float uFocalLength;
-uniform float uTime;
-
-uniform vec3 uLightDir;
-uniform float uNear;
-uniform float uFar;
-uniform int uSteps;
-uniform float uEpsilon;
-uniform float uNormalEps;
-uniform mat4 uCameraMatrix;
-uniform float uAspectRatio;
-uniform vec2 uResolution = vec2(800.0, 600.0);
-uniform bool uInLinearSpace;
-
-uniform float uWarp = 0.75; // simulate curvature of CRT monitor
-uniform float uScan = 0.75; // simulate darkness between scanlines
-
-uniform float uFocusDistance = 500.0;
-uniform int uFocusSamples = 1;
-uniform float uApertureSize = 0; // size of hole in pinhole camera
-
-const vec3 uLightColor = vec3(1.0);
-
-// colors
-const vec3 starshipColor = vec3(0.4, 0.4, 0.4);
-const vec3 moonColor = vec3(0.96, 0.91, 0.77);
-const vec3 sunColor = vec3(0.98, 0.81, 0.32);
-const vec3 earthColor = vec3(0.0, 0.0, 0.62);
-
-const int SKY_ID = 0;
-const int STARSHIP_ID = 1;
-const int MOON_ID = 3;
-const int SUN_ID = 4;
-const int EARTH_ID = 5;
-
-#include "scene_construction.glsl"
-#include "sdf.glsl"
-#include "math.glsl"
+#include "procedural.glsl"
+#include "raytracing.glsl"
+#include "uniforms.glsl"
 #include "linear_space.glsl"
-
-struct Intersection {
-  float depth; // Current depth on the ray
-  vec3 pos; // Current position on the ray
-  int ID; // ID of the closest object
-  bool glowing; // whether or not the closest object "glows"
-  int steps; // Number of steps taken
-};
-
-vec3 proceduralSky(vec3 rayDir) {
-  const int star_amount = 1000; // not the actual amount
-
-  vec3 cell = floor(rayDir * star_amount);
-  float h = hash(cell);
-
-  if (h > 0.999) {
-    // Random brightness
-    float brightness = pow(hash(vec3(h)), 4.0);
-    return vec3(brightness);
-  } else {
-    return vec3(0.0);
-  }
-}
-
-vec3 proceduralSun(vec3 rayDir) {
-  return pow(max(0.0, dot(rayDir, uLightDir)), 1000) * uLightColor;
-}
-
-/* Returns the color of the object ID at pos */
-vec3 colorScene(vec3 pos, int ID) {
-  switch (ID) {
-    case STARSHIP_ID:
-    return starshipColor;
-    case MOON_ID:
-    return moonColor;
-    case SUN_ID:
-    return sunColor;
-    case EARTH_ID:
-    return earthColor;
-    default:
-    return vec3(1.0, 0.0, 0.0);
-  }
-}
-
-/* Returns the normalized gradient of the signed distance field of our scene */
-vec3 normalScene(vec3 pos) {
-  vec2 h = vec2(uNormalEps, 0);
-  return normalize(vec3(
-      sdScene(pos + h.xyy).dist - sdScene(pos - h.xyy).dist,
-      sdScene(pos + h.yxy).dist - sdScene(pos - h.yxy).dist,
-      sdScene(pos + h.yyx).dist - sdScene(pos - h.yyx).dist
-    ));
-}
-
-Intersection raymarchScene(vec3 rayOrigin, vec3 rayDir, float near, float far) {
-  Intersection intsec = Intersection(
-      0,
-      rayOrigin,
-      SKY_ID,
-      true,
-      0
-    );
-
-  float next_depth = near;
-
-  while (
-    next_depth > uEpsilon
-      && intsec.depth < far
-      && intsec.steps < uSteps
-  ) {
-    intsec.depth += next_depth;
-    intsec.pos += rayDir * next_depth;
-
-    SD sd = sdScene(intsec.pos);
-    next_depth = sd.dist;
-    intsec.ID = sd.ID;
-    intsec.glowing = sd.glowing;
-
-    intsec.steps += 1;
-  }
-
-  return intsec;
-}
+#line 11
 
 vec3 renderAt(vec2 ndc, vec2 offset) {
   vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); // Renormalize after interpolation (with crt)
   vec3 rayOrigin = uCameraPosition;
 
   vec3 focusPoint = uCameraPosition + rayDir * uFocusDistance;
-  
+
   // shifted focusPoint
   vec3 x = normalize(mat3(uCameraMatrix) * vec3(1.0, 0.0, 0.0));
   vec3 y = normalize(mat3(uCameraMatrix) * vec3(0.0, 1.0, 0.0));
   vec3 shiftedEye = uCameraPosition + x * offset.x + y * offset.y;
-  
+
   // new ray
   vec3 shiftedRayDir = normalize(focusPoint - shiftedEye);
 
-  Intersection isec = raymarchScene(shiftedEye, shiftedRayDir, uNear, uFar);
-
+  // Clear with background
   vec3 color;
-  if (isec.depth >= uFar) {
-
-    // No hit, render a procedural background
-    if (uInLinearSpace) {
-      color = color_linear_space(rayDir);
-    } else {
-      color = proceduralSky(rayDir) + proceduralSun(rayDir);
-    }
+  if (uInLinearSpace) {
+    color = color_linear_space(rayDir);
   } else {
-    // We hit something
-
-    vec3 intensity;
-    if (isec.glowing || uInLinearSpace) {
-      intensity = vec3(1.0);
-    } else {
-      // The normal is the normalized gradient of the signed distance field
-      vec3 normal = normalScene(isec.pos);
-      // Lambert lighting term
-      vec3 lighting = max(dot(normal, uLightDir), 0.0) * uLightColor;
-      // Test if something lies between the hit point and the light source
-      float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
-
-      intensity = lighting * shadow;
-    }
-
-    // Get the color of the hit point
-    vec3 albedo = colorScene(isec.pos, isec.ID);
-
-    // Calculate lighting
-    color = intensity * albedo;
+    color = proceduralSky(rayDir);
   }
-  return color;
+
+  return raytrace(shiftedEye, shiftedRayDir, color);
 }
 
 void main() {
@@ -204,16 +60,16 @@ void main() {
   if (uFocusSamples <= 1) {
     color = renderAt(ndc, vec2(0.0));
   } else {
-  for (int i = 0; i < uFocusSamples; i++) {
-    // angles in 360° with 2 pi
-    float angle = float(i) / float(uFocusSamples) * 6.28318;
-    float radius = uApertureSize * sqrt(float(i) / float(max(uFocusSamples - 1, 1)));
-    vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+    for (int i = 0; i < uFocusSamples; i++) {
+      // angles in 360° with 2 pi
+      float angle = float(i) / float(uFocusSamples) * 6.28318;
+      float radius = uApertureSize * sqrt(float(i) / float(max(uFocusSamples - 1, 1)));
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
 
-    // ndc with fucus blur offset
-    color += renderAt(ndc, offset);
-  }
-  color /= float(uFocusSamples);
+      // ndc with fucus blur offset
+      color += renderAt(ndc, offset);
+    }
+    color /= float(uFocusSamples);
   }
 
   // determine if we are drawing in a scanline
@@ -221,5 +77,3 @@ void main() {
   // sample the texture
   fragColor = mix(color, vec3(0.0), apply);
 }
-
-// end: render

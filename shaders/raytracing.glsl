@@ -1,6 +1,8 @@
+#include "colors.glsl"
 #include "math.glsl"
 #include "procedural.glsl"
 #include "uniforms.glsl"
+#line 6
 
 vec3 intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2) {
   // edges
@@ -25,10 +27,13 @@ vec3 intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2) {
   }
 }
 
-/// Takes a ray and background color and returns the color of the point hit.
-vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color) {
+/// We are only using triangles to render OLDMAN. Therefore, this function
+/// raytraces all triangle stuff with some values, like color, hardcoded for
+/// OLDMAN.
+///
+/// Returned will be a "tuple": (depth, color)
+vec4 raytraceOldman(vec3 rayOrigin, vec3 rayDir, float depth, vec3 background_color) {
   vec3 color = background_color;
-  float depth = uFar;
 
   // Loop through each triangle uIndices[i].xyz
   for (uint i = 0u; i < uTriangleCount; i++) {
@@ -50,12 +55,39 @@ vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color) {
       vec3 n1 = uVertices[uIndices[i].y * 2u + 1u].yzw;
       vec3 n2 = uVertices[uIndices[i].z * 2u + 1u].yzw;
 
-      // Interpolate normals
-      vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
+      vec3 intensity;
+      if (uInLinearSpace) {
+        intensity = vec3(1.0);
+      } else {
+        // Interpolate normals
+        vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
+        // Lambert lighting term
+        vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
+        // Test if something lies between the hit point and the light source
+        // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+        float shadow = 1.0; // FIXME: proper shadows
 
-      // Shade
-      color = max(0.0, dot(normal, uLightDir)) + vec3(0.005);
+        intensity = lighting * shadow;
+      }
+
+      // Calculate lighting
+      color = intensity * starshipColor;
     }
+  }
+
+  return vec4(depth, color);
+}
+
+/// Takes a ray and background color and returns the color of the point hit.
+vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color) {
+  vec3 color = background_color;
+  float depth = uFar;
+
+  // render triangles / oldman
+  {
+    vec4 result = raytraceOldman(rayOrigin, rayDir, depth, color);
+    depth = result.x;
+    color = result.yzw;
   }
 
   // procedual stuff

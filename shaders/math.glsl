@@ -1,3 +1,5 @@
+#line 2
+
 const float Inf = 1.0 / 0.0;
 const float NaN = 0.0 / 0.0;
 const float PI = 3.1415926;

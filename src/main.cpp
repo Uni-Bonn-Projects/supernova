@@ -79,7 +79,7 @@ struct MainApp : public App {
 
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
-    load_shaders(program, "shaders", "main.vert", "raytrace.frag");
+    load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
 
     // register objects

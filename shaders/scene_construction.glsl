@@ -1,5 +1,6 @@
 #include "sdf.glsl"
 #include "math.glsl"
+#line 4
 
 uniform vec3 u_oldman_pos;
 uniform float u_oldman_active;
