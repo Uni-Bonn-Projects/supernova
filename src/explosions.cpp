@@ -142,11 +142,6 @@ void Explosions::init(void) {
 
     glBindVertexArray(0);
   }
-
-  // enable some other opengl features
-  // TODO: really required?
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
