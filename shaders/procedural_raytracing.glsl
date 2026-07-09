@@ -3,6 +3,12 @@
 #include "uniforms.glsl"
 #line 5
 
+// everything in kilometers
+const float attackerRadius = 2.5 / 2.0;
+const float moonRadius = 3474.0 / 2.0;
+const float earthRadius = 12756.0 / 2.0;
+const float earthMoonDist = 384400.0;
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// BACKGROUND //////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,15 +119,53 @@ vec4 proceduralScene(
   float depth = current_depth;
   vec3 color = background_color;
 
-  // procedual stuff
-  // (only a shere for now)
-  vec3 spherePos = vec3(60, 20, 20);
-  float sphereRadius = 10;
+  // if (u_attacker_active > 0.5) {
+  if (true) {
+    const int attackerAmount = 13;
+    const float attacker_distance_val = 400.0;
+    vec3 attacker_origin = u_attacker_pos;
 
-  float distance = proceduralSphere(rayOrigin, rayDir, spherePos, sphereRadius);
-  if (distance < depth) {
-    depth = distance;
-    color = sphereColor(rayOrigin, rayDir, spherePos, distance, moonColor);
+    for (int i = 0; i < attackerAmount; i++) {
+      // pos calced based on fibonacci sphere sampling
+      float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
+      float radius_at_y = sqrt(1.0 - y * y);
+      float theta = float(i) * GOLDEN_ANGLE;
+      float x = cos(theta) * radius_at_y;
+      float z = sin(theta) * radius_at_y;
+      vec3 attacker_vec = vec3(x, y, z) * attacker_distance_val;
+
+      vec3 attackerPos = attacker_origin + attacker_vec;
+      float distance = proceduralSphere(
+          rayOrigin,
+          rayDir,
+          attackerPos,
+          attackerRadius * u_attacker_scale
+        );
+      if (distance < depth) {
+        depth = distance;
+        color = sphereColor(rayOrigin, rayDir, attackerPos, distance, starshipColor);
+      }
+    }
+  }
+
+  // moon
+  vec3 moonPos = xInDir(10000, vec3(-1, -1, -1));
+  {
+    float distance = proceduralSphere(rayOrigin, rayDir, moonPos, moonRadius);
+    if (distance < depth) {
+      depth = distance;
+      color = sphereColor(rayOrigin, rayDir, moonPos, distance, moonColor);
+    }
+  }
+
+  // earth
+  vec3 earthPos = moonPos + xInDir(earthMoonDist, vec3(0.2, 0.3, 1));
+  {
+    float distance = proceduralSphere(rayOrigin, rayDir, earthPos, earthRadius);
+    if (distance < depth) {
+      depth = distance;
+      color = sphereColor(rayOrigin, rayDir, earthPos, distance, earthColor);
+    }
   }
 
   return vec4(depth, color);

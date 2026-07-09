@@ -24,3 +24,11 @@ uniform float uScan = 0.75; // simulate darkness between scanlines
 uniform float uFocusDistance = 500.0;
 uniform int uFocusSamples = 1;
 uniform float uApertureSize = 0; // size of hole in pinhole camera
+
+uniform vec3 u_oldman_pos;
+uniform float u_oldman_active;
+uniform float u_oldman_scale;
+
+uniform vec3 u_attacker_pos; // deps: procedural_raytracing
+uniform float u_attacker_active; // deps: procedural_raytracing
+uniform float u_attacker_scale; // deps: procedural_raytracing

@@ -3,6 +3,7 @@
 const float Inf = 1.0 / 0.0;
 const float NaN = 0.0 / 0.0;
 const float PI = 3.1415926;
+const float GOLDEN_ANGLE = PI * (3.0 - sqrt(5.0));
 
 float degToRad(float deg) {
   return deg * (PI / 180.0);
