@@ -1,4 +1,4 @@
-#include "colors.glsl"
+#include "common.glsl"
 #include "math.glsl"
 #include "procedural_raytracing.glsl"
 #include "uniforms.glsl"
@@ -36,17 +36,11 @@ vec3 intersectTriangle(
 /// We are only using triangles to render OLDMAN. Therefore, this function
 /// raytraces all triangle stuff with some values, like color, hardcoded for
 /// OLDMAN.
-///
-/// Returned will be a "tuple": (depth, color)
-vec4 raytraceOldman(
+RaytraceResult raytraceOldman(
   vec3 rayOrigin,
   vec3 rayDir,
-  float current_depth,
-  vec3 background_color
+  RaytraceResult result
 ) {
-  float depth = current_depth;
-  vec3 color = background_color;
-
   // Loop through each triangle uIndices[i].xyz
   for (uint i = 0u; i < uTriangleCount; i++) {
     // Fetch vertex positions
@@ -54,60 +48,62 @@ vec4 raytraceOldman(
     vec3 v1 = uVertices[uIndices[i].y * 2u].xyz;
     vec3 v2 = uVertices[uIndices[i].z * 2u].xyz;
 
-    vec3 result = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
+    vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
 
     // Overdraw if closer
-    if (result.z < depth) {
-      // Unpack result
-      depth = result.z;
-      vec3 barycentrics = vec3(1.0 - result.x - result.y, result.xy);
+    if (curResult.z < result.distance) {
+      vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
 
       // Fetch vertex normals
       vec3 n0 = uVertices[uIndices[i].x * 2u + 1u].yzw;
       vec3 n1 = uVertices[uIndices[i].y * 2u + 1u].yzw;
       vec3 n2 = uVertices[uIndices[i].z * 2u + 1u].yzw;
 
-      vec3 intensity;
-      if (uInLinearSpace) {
-        intensity = vec3(1.0);
-      } else {
-        // Interpolate normals
-        vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
-        // Lambert lighting term
-        vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
-        // Test if something lies between the hit point and the light source
-        // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
-        float shadow = 1.0; // FIXME: proper shadows
-
-        intensity = lighting * shadow;
-      }
-
-      // Calculate lighting
-      color = intensity * starshipColor;
+      result.hitPos = curResult;
+      result.normal = normalize(mat3(n0, n1, n2) * barycentrics);
+      result.objectColor = starshipColor;
+      result.distance = curResult.z;
+      result.glowing = false;
     }
   }
 
-  return vec4(depth, color);
+  return result;
+}
+
+vec3 calcLighting(RaytraceResult x) {
+  vec3 intensity;
+  if (x.glowing || uInLinearSpace) {
+    intensity = vec3(1.0);
+  } else {
+    // Lambert lighting term
+    vec3 lighting = vec3(max(dot(x.normal, uLightDir), 0.0));
+    // Test if something lies between the hit point and the light source
+    // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+    float shadow = 1.0; // FIXME: proper shadows
+
+    intensity = lighting * shadow;
+  }
+
+  // Calculate and return lighting
+  return intensity * x.objectColor;
 }
 
 /// Takes a ray and background color and returns the color of the point hit.
 vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color) {
-  vec3 color = background_color;
-  float depth = uFar;
+  RaytraceResult result = RaytraceResult(
+    vec3(Inf), // anything can be here
+    vec3(Inf), // anything can be here
+    background_color,
+    uFar,
+    true
+  );
 
   // render triangles / oldman
-  {
-    vec4 result = raytraceOldman(rayOrigin, rayDir, depth, color);
-    depth = result.x;
-    color = result.yzw;
-  }
+  result = raytraceOldman(rayOrigin, rayDir, result);
 
   // render procedural stuff
-  {
-    vec4 result = proceduralScene(rayOrigin, rayDir, depth, color);
-    depth = result.x;
-    color = result.yzw;
-  }
+  result = proceduralScene(rayOrigin, rayDir, result);
 
-  return color;
+  // return the final color after lighting calcs
+  return calcLighting(result);
 }

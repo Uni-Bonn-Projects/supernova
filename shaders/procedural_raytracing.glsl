@@ -1,4 +1,4 @@
-#include "colors.glsl"
+#include "common.glsl"
 #include "math.glsl"
 #include "uniforms.glsl"
 #line 5
@@ -79,46 +79,12 @@ float proceduralSphere(
 //////////////////////////////////// SCENE /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-vec3 sphereColor(
-  vec3 rayOrigin,
-  vec3 rayDir,
-  vec3 spherePos,
-  float distance,
-  vec3 albedo
-) {
-  vec3 intensity;
-  if (uInLinearSpace) {
-    intensity = vec3(1.0);
-  } else {
-    vec3 hitPos = rayOrigin + distance * rayDir;
-    vec3 normal = normalize(hitPos - spherePos);
-
-    // Lambert lighting term
-    vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
-
-    // Test if something lies between the hit point and the light source
-    // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
-    float shadow = 1.0; // FIXME: proper shadows
-
-    intensity = lighting * shadow;
-  }
-
-  // Calculate lighting
-  return intensity * albedo;
-}
-
 /// Performs raytracing on all of the procedural geometry
-///
-/// Returned will be a "tuple": (depth, color)
-vec4 proceduralScene(
+RaytraceResult proceduralScene(
   vec3 rayOrigin,
   vec3 rayDir,
-  float current_depth,
-  vec3 background_color
+  RaytraceResult result
 ) {
-  float depth = current_depth;
-  vec3 color = background_color;
-
   // if (u_attacker_active > 0.5) {
   if (true) {
     const int attackerAmount = 13;
@@ -141,9 +107,12 @@ vec4 proceduralScene(
           attackerPos,
           attackerRadius * u_attacker_scale
         );
-      if (distance < depth) {
-        depth = distance;
-        color = sphereColor(rayOrigin, rayDir, attackerPos, distance, starshipColor);
+      if (distance < result.distance) {
+        result.hitPos = rayOrigin + distance * rayDir;
+        result.normal = normalize(result.hitPos - attackerPos);
+        result.objectColor = starshipColor;
+        result.distance = distance;
+        result.glowing = false;
       }
     }
   }
@@ -152,9 +121,12 @@ vec4 proceduralScene(
   vec3 moonPos = xInDir(10000, vec3(-1, -1, -1));
   {
     float distance = proceduralSphere(rayOrigin, rayDir, moonPos, moonRadius);
-    if (distance < depth) {
-      depth = distance;
-      color = sphereColor(rayOrigin, rayDir, moonPos, distance, moonColor);
+    if (distance < result.distance) {
+      result.hitPos = rayOrigin + distance * rayDir;
+      result.normal = normalize(result.hitPos - moonPos);
+      result.objectColor = moonColor;
+      result.distance = distance;
+      result.glowing = false;
     }
   }
 
@@ -162,11 +134,14 @@ vec4 proceduralScene(
   vec3 earthPos = moonPos + xInDir(earthMoonDist, vec3(0.2, 0.3, 1));
   {
     float distance = proceduralSphere(rayOrigin, rayDir, earthPos, earthRadius);
-    if (distance < depth) {
-      depth = distance;
-      color = sphereColor(rayOrigin, rayDir, earthPos, distance, earthColor);
+    if (distance < result.distance) {
+      result.hitPos = rayOrigin + distance * rayDir;
+      result.normal = normalize(result.hitPos - earthPos);
+      result.objectColor = earthColor;
+      result.distance = distance;
+      result.glowing = false;
     }
   }
 
-  return vec4(depth, color);
+  return result;
 }
