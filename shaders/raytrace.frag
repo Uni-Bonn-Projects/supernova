@@ -10,7 +10,6 @@ uniform uint uTriangleCount;
 
 uniform vec3 uCameraPosition;
 
-uniform uint uView = 0u;
 uniform vec3 uLightDir = normalize(vec3(1.0));
 uniform vec3 uLightColor = vec3(1.0);
 uniform float uNear = 0.1;
@@ -113,15 +112,9 @@ void main() {
 
       // Interpolate normals
       vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
-      // = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
 
       // Shade
       fragColor = max(dot(normal, uLightDir), 0.0) * uLightColor + vec3(0.005);
-
-      // Debug views
-      if (uView == 1u) fragColor = normal * 0.5 + 0.5;
-      if (uView == 2u) fragColor = vec3(1.0 - (depth / uFar));
-      if (uView == 3u) fragColor = barycentrics;
     }
   }
 

@@ -22,7 +22,6 @@ struct MainApp : public App {
   Camera camera;
 
   // Uniforms
-  unsigned int uView = 0;
   vec3 uLightDir = normalize(vec3(1.0));
   vec3 uLightColor = vec3(1.0);
   float uNear = 0.1;
@@ -35,9 +34,6 @@ struct MainApp : public App {
 
     // Output mesh size
     GLuint triangleCount = indices.size() / 3;
-    std::cout << "Vertices: " << vertices.size()
-              << "\tIndices: " << indices.size() << "\tFaces: " << triangleCount
-              << std::endl;
 
     // Pass the vertices to the shader as vec4 array
     // Each vertex is 2 vec4s arranged as:
@@ -65,7 +61,6 @@ struct MainApp : public App {
     std::cout << "Max fragment uniform components: "
               << maxFragmentUniformComponents << std::endl;
 
-    program.set("uView", uView);
     program.set("uLightDir", uLightDir);
     program.set("uLightColor", uLightColor);
     program.set("uNear", uNear);
@@ -84,41 +79,6 @@ struct MainApp : public App {
 
     mesh.draw();
   }
-
-  void buildImGui() override {
-    ImGui::StatisticsWindow(App::delta, App::resolution);
-
-    ImGui::Begin("Settings", nullptr, ImGuiChildFlags_AlwaysAutoResize);
-    if (ImGui::Combo("View", &uView,
-                     {"Render", "Normals", "Depth", "Barycentrics"}))
-      program.set("uView", uView);
-    if (ImGui::SphericalSlider("Light Dir", uLightDir))
-      program.set("uLightDir", uLightDir);
-    if (ImGui::ColorEdit3("Light Color", value_ptr(uLightColor),
-                          ImGuiColorEditFlags_Float))
-      program.set("uLightColor", uLightColor);
-    if (ImGui::SliderFloat("Near Plane", &uNear, 0.0, 10.0, "%.1f"))
-      program.set("uNear", uNear);
-    if (ImGui::SliderFloat("Far Plane", &uFar, 0.0, 100.0, "%.1f",
-                           ImGuiSliderFlags_Logarithmic))
-      program.set("uFar", uFar);
-    if (ImGui::Button("Load Plane"))
-      loadObj(program, "meshes/plane.obj");
-    if (ImGui::Button("Load Cube"))
-      loadObj(program, "meshes/cube.obj");
-    if (ImGui::Button("Load Sphere"))
-      loadObj(program, "meshes/lowpolysphere.obj");
-    ImGui::End();
-  }
-
-  void keyCallback(Key key, Action action, Modifier modifier) override {
-    if (key == Key::ESC && action == Action::PRESS)
-      App::close();
-    else if (key == Key::COMMA && action == Action::PRESS)
-      App::imguiEnabled = !App::imguiEnabled;
-  }
-
-  void scrollCallback(float x, float y) override { camera.zoom(y); }
 
   void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
                     bool middleButton) override {
