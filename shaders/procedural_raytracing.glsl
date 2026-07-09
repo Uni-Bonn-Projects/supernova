@@ -73,6 +73,34 @@ float proceduralSphere(
 //////////////////////////////////// SCENE /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+vec3 sphereColor(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  vec3 spherePos,
+  float distance,
+  vec3 albedo
+) {
+  vec3 intensity;
+  if (uInLinearSpace) {
+    intensity = vec3(1.0);
+  } else {
+    vec3 hitPos = rayOrigin + distance * rayDir;
+    vec3 normal = normalize(hitPos - spherePos);
+
+    // Lambert lighting term
+    vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
+
+    // Test if something lies between the hit point and the light source
+    // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
+    float shadow = 1.0; // FIXME: proper shadows
+
+    intensity = lighting * shadow;
+  }
+
+  // Calculate lighting
+  return intensity * albedo;
+}
+
 /// Performs raytracing on all of the procedural geometry
 ///
 /// Returned will be a "tuple": (depth, color)
@@ -87,30 +115,13 @@ vec4 proceduralScene(
 
   // procedual stuff
   // (only a shere for now)
-  vec3 sphere_pos = vec3(60, 20, 20);
-  float sphere_radius = 10;
+  vec3 spherePos = vec3(60, 20, 20);
+  float sphereRadius = 10;
 
-  float result = proceduralSphere(rayOrigin, rayDir, sphere_pos, sphere_radius);
-  if (result < depth) {
-    vec3 intensity;
-    if (uInLinearSpace) {
-      intensity = vec3(1.0);
-    } else {
-      vec3 hitPos = rayOrigin + result * rayDir;
-      vec3 normal = normalize(hitPos - sphere_pos);
-
-      // Lambert lighting term
-      vec3 lighting = vec3(max(dot(normal, uLightDir), 0.0));
-
-      // Test if something lies between the hit point and the light source
-      // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
-      float shadow = 1.0; // FIXME: proper shadows
-
-      intensity = lighting * shadow;
-    }
-
-    // Calculate lighting
-    color = intensity * moonColor;
+  float distance = proceduralSphere(rayOrigin, rayDir, spherePos, sphereRadius);
+  if (distance < depth) {
+    depth = distance;
+    color = sphereColor(rayOrigin, rayDir, spherePos, distance, moonColor);
   }
 
   return vec4(depth, color);
