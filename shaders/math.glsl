@@ -19,3 +19,27 @@ float hash(vec3 p3) {
 vec3 xInDir(float x, vec3 dir) {
   return x * normalize(dir);
 }
+
+vec3 rotateZ(vec3 pos, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+
+  mat3 m = mat3(
+      c, s, 0.0,
+      -s, c, 0.0,
+      0.0, 0.0, 1.0
+    );
+  return m * pos;
+}
+
+vec3 rotateY(vec3 pos, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+
+  mat3 m = mat3(
+      c, 0.0, s,
+      0.0, 1.0, 0.0,
+      -s, 0.0, c
+    );
+  return m * pos;
+}
