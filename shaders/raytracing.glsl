@@ -26,7 +26,7 @@ vec3 intersectTriangle(
   float u = dot(cross(p, e2), n) / dot(n, n);
   float v = dot(cross(e1, p), n) / dot(n, n);
 
-  if (u > 0 && v > 0 && u + v < 1) {
+  if (u > 0 && v > 0 && u + v < 1 && t > 0) {
     return vec3(u, v, t);
   } else {
     return vec3(Inf);
