@@ -9,15 +9,13 @@ out vec3 fragColor;
 #include "linear_space.glsl"
 #line 11
 
-vec3 renderAt(vec2 ndc, vec2 offset) {
-  vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); // Renormalize after interpolation (with crt)
+vec3 renderAt(vec2 ndc, vec2 offset, vec3 rayDir, vec3 x, vec3 y) {
   vec3 rayOrigin = uCameraPosition;
 
   vec3 focusPoint = uCameraPosition + rayDir * uFocusDistance;
 
   // shifted focusPoint
-  vec3 x = normalize(mat3(uCameraMatrix) * vec3(1.0, 0.0, 0.0));
-  vec3 y = normalize(mat3(uCameraMatrix) * vec3(0.0, 1.0, 0.0));
+  // x and y calculated in main
   vec3 shiftedEye = uCameraPosition + x * offset.x + y * offset.y;
 
   // new ray
@@ -54,11 +52,17 @@ void main() {
   // warp uv from (0.0, 1.0) to (-1.0, 1.0)
   vec2 ndc = uv * 2.0 - 1.0;
 
+  // Renormalize after interpolation (with crt)
+  vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); 
+
   // focus blur
+  // world directions for focusPoint
+  vec3 x = normalize(mat3(uCameraMatrix) * vec3(1.0, 0.0, 0.0));
+  vec3 y = normalize(mat3(uCameraMatrix) * vec3(0.0, 1.0, 0.0));
   vec3 color = vec3(0.0);
   // nothing
   if (uFocusSamples <= 1) {
-    color = renderAt(ndc, vec2(0.0));
+    color = renderAt(ndc, vec2(0.0), rayDir, x, y);
   } else {
     for (int i = 0; i < uFocusSamples; i++) {
       // angles in 360° with 2 pi
@@ -67,7 +71,7 @@ void main() {
       vec2 offset = vec2(cos(angle), sin(angle)) * radius;
 
       // ndc with fucus blur offset
-      color += renderAt(ndc, offset);
+      color += renderAt(ndc, offset, rayDir, x, y);
     }
     color /= float(uFocusSamples);
   }
