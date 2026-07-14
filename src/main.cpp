@@ -1,99 +1,177 @@
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#include <imgui.h>
+
 #include <glad/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-using namespace glm;
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
-#include <imgui.h>
-
-#include "audio/miniaudio.h"
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
-#include <iostream>
+#include <framework/objparser.hpp>
+
+#include "audio_engine.h"
+#include "explosions.h"
+#include "multifile_shaders.h"
+
+#include "cinematic.cpp" // source file import?
+
+using namespace glm;
 
 struct MainApp : public App {
   Program program;
   Mesh mesh;
   Camera camera;
-  ma_engine audioEngine;
-  bool audioAvailable = false;
+  AssetManager assetManager;
+
+  CinematicDirector director;
+  Explosions explosions;
+  AudioEngine audio;
+
+  // timed explosion tied to the audio cue below, both keyed off uFlightTime
+  const float kAttackExplosionTime = 10.0f;
+  vec3 attackExplosionPos = vec3(0.0f);
+  bool attackExplosionFired = false;
+
   vec3 uLightDir = normalize(vec3(1.0));
-  float uNear = 0.1;
-  float uFar = 10'000.0;
+  float uNear = 1.0;
+  float uFar = 1'000'000.0;
   int uSteps = 1000;
   float uEpsilon = 0.0001;
-  float uNormalEps = 0.0001;
+  float uNormalEps = 0.1;
   bool uAutoCam = false;
   float uFlightTime = 0.0f;
+  float uWarp = 0.75f;
+  float uScan = 0.75f;
+  vec3 fightPos = vec3(-600.0, -600.0, -600.0);
+  bool uInLinearSpace = false;
+  float uFocusDistance = 500.0f;
+  float uApertureSize = 0.0f;
+  int uFocusSamples = 1;
 
   bool keys[(int)Key::MENU]; // "bit map" for all keys
   float move_speed = 1.0;
 
+  void loadObj(Program &program, const std::string &filename) {
+    std::vector<Mesh::VertexPTN> vertices;
+    std::vector<unsigned int> indices;
+    ObjParser::parse(filename, vertices, indices);
+
+    // Output mesh size
+    GLuint triangleCount = indices.size() / 3;
+
+    // Pass the vertices to the shader as vec4 array
+    // Each vertex is 2 vec4s arranged as:
+    // (vec4(Px, Py, Pz, Cx), vec4(Cy, Nx, Ny, Nz)) with P = Position, C =
+    // Texture Coordinate, N = Normal
+    glProgramUniform4fv(program.handle, program.uniform("uVertices"),
+                        vertices.size() * 2, value_ptr(vertices[0].position));
+
+    // Pass the indices to the shader as uvec3 array, each uvec3 being a
+    // triangle
+    glProgramUniform3uiv(program.handle, program.uniform("uIndices"),
+                         triangleCount, indices.data());
+
+    // Pass triangle count to the shader
+    program.set("uTriangleCount", triangleCount);
+  }
+
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
-    program.load("shaders/raygen.vert", "shaders/raymarch.frag");
+    load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
 
+    // register objects
+    assetManager.registerObject("oldman");
+    assetManager.registerObject("attacker");
+
+    // camera movement
+    director.moveCameraTo(fightPos + vec3(700.0f, 300.0f, 0.0f), fightPos,
+                          114.0f);
+    vec3 attackerPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+    director.moveCameraTo(attackerPos + vec3(100.0f, 50.0f, -100.0f),
+                          attackerPos, 56.0f);
+    director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
+                          201.0f);
+    attackExplosionPos = attackerPos;
+
+    // Audio: an underlying score loops for the whole cinematic, and sound
+    // effects are triggered off the same uFlightTime clock that drives the
+    // camera/spawn timeline (see the scheduleSFX call and the matching
+    // kAttackExplosionTime check in render()).
+    audio.init();
+    audio.playMusic("src/audio/Geist.wav", 0.5f);
+    audio.scheduleSFX(kAttackExplosionTime, "src/audio/explosion.wav");
+
     // Init uniforms
+    program.set("uLightColor", vec3(1.0));
     program.set("uLightDir", uLightDir);
     program.set("uNear", uNear);
     program.set("uFar", uFar);
     program.set("uSteps", uSteps);
     program.set("uEpsilon", uEpsilon);
     program.set("uNormalEps", uNormalEps);
+    program.set("uWarp", uWarp);
+    program.set("uScan", uScan);
+    program.set("uResolution", resolution);
+    program.set("uInLinearSpace", uInLinearSpace);
+    program.set("uFocusDistance", uFocusDistance);
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
+    loadObj(program, "meshes/lowpolysphere.obj");
     program.use();
 
-    auto result = ma_engine_init(NULL, &audioEngine);
-    audioAvailable = result == MA_SUCCESS;
-    if (!audioAvailable) {
-      std::cerr << "Audio engine init failed: " << result << "\n";
-    } else {
-      result = ma_engine_play_sound(&audioEngine, "src/audio/Geist.wav", NULL);
-      audioAvailable = result == MA_SUCCESS;
-      if (!audioAvailable) {
-        std::cerr << "Failed to play audio: " << result << "\n";
-      }
-    }
+    explosions.init();
   }
 
-  ~MainApp() {
-    if (audioAvailable) {
-      ma_engine_uninit(&audioEngine);
-    }
-  }
+  ~MainApp() override { audio.shutdown(); }
 
   void render() override {
-    // automatic camera for movie
-    //  TODO FLO: richtige kamera positionen und eventuel Winkel und bisschen
-    //  kamerafahrt
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    program.use();
+
+    // autocam
     if (uAutoCam == true) {
-      // timer wie lange clip geht
-      uFlightTime += delta;
-
-      // old man folgen (Platzhalter)
-      if (uFlightTime < 6.0f) {
-        camera.worldPosition = vec3(0.0f, 150.0f, 500.0f);
-        camera.target = vec3(0.0f);
-        camera.invalidate();
-
-        // panning shot auf attacker (Platzhalter)
-      } else if (uFlightTime < 12.0f) {
-        camera.worldPosition = vec3(500.0f, 50.0f, 0.0f);
-        camera.target = vec3(0.0f);
-        camera.invalidate();
-
-        // kampft old man und attacker (Platzhalter)
-      } else if (uFlightTime < 19.0f) {
-        camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
-        camera.target = vec3(0.0f);
-        camera.invalidate();
-
-        // ende
+      uFlightTime += App::delta;
+      // spawn and despawn
+      if (uFlightTime >= 0.0f && uFlightTime < 25.0f) {
+        assetManager.spawn("oldman", fightPos, 1.0f);
       } else {
+        assetManager.despawn("oldman");
+      }
+
+      if (uFlightTime >= 6.0f && uFlightTime < 25.0f) {
+        assetManager.spawn("attacker", fightPos + vec3(800.0f, 0.0f, 0.0f),
+                           2.5f);
+      } else {
+        assetManager.despawn("attacker");
+      }
+
+      // timed explosion (visual), paired with the SFX scheduled in the
+      // constructor at the same kAttackExplosionTime
+      if (!attackExplosionFired && uFlightTime >= kAttackExplosionTime) {
+        explosions.spawn(attackExplosionPos, 10.0);
+        attackExplosionFired = true;
+      }
+      audio.update(uFlightTime);
+      // gets the smooth camera curve
+      camera.worldPosition = CinematicSpline::getInterpolatedPosition(
+          director.timelineKeyframes, uFlightTime, false);
+      camera.target = CinematicSpline::getInterpolatedPosition(
+          director.timelineKeyframes, uFlightTime, true);
+      camera.invalidate();
+
+      // end
+      if (uFlightTime > director.currentTimelineEnd) {
         uAutoCam = false;
         uFlightTime = 0.0f;
       }
@@ -131,18 +209,40 @@ struct MainApp : public App {
       }
     }
     program.set("uTime", time);
+    // update objects for shader
+    assetManager.updateShaderUniforms(program);
 
     // Update camera information on change
-    if (camera.updateIfChanged()) {
+    bool camera_changed = camera.updateIfChanged();
+    if (camera_changed) {
       program.set("uCameraMatrix", camera.cameraMatrix);
       program.set("uAspectRatio", camera.aspectRatio);
       program.set("uFocalLength", camera.focalLength);
       program.set("uCameraPosition", camera.worldPosition);
+      // change focus distanz to current position
+      uFocusDistance =
+          max(100.0f, glm::distance(camera.worldPosition, camera.target));
+      program.set("uFocusDistance", uFocusDistance);
     }
 
     // We already bind the program in the constructor, so we don't need to bind
     // it again here
     mesh.draw();
+
+    explosions.render(camera, App::delta, camera_changed);
+    // focus blur only during explosion
+    if (explosions.isActive()) {
+      uApertureSize = 15.0f;
+      uFocusSamples = 4;
+    } else {
+      // goes down slowly instead of instantly
+      // glm::mix(a, b, c) = a + (b - a) * c
+      uApertureSize = glm::mix(uApertureSize, 0.0f, 0.05f);
+      uFocusSamples = uApertureSize < 0.1f ? 1 : 4;
+    }
+    // after every frame
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
   }
 
   void buildImGui() override {
@@ -170,14 +270,41 @@ struct MainApp : public App {
                            ImGuiSliderFlags_Logarithmic))
       program.set("uNormalEps", uNormalEps);
 
-    if (ImGui::Checkbox("Automatic Camera", &uAutoCam))
+    if (ImGui::Checkbox("In linear space", &uInLinearSpace))
+      program.set("uInLinearSpace", uInLinearSpace);
+
+    if (ImGui::Checkbox("Automatic Camera", &uAutoCam)) {
       uFlightTime = 0.0f;
+      attackExplosionFired = false;
+      audio.resetSchedule();
+    }
     ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
                             : uFlightTime < 12.0f ? "2 - Attacker"
-                            : uFlightTime < 19.0f ? "3 - Kampf"
+                            : uFlightTime < 25.0f ? "3 - Kampf"
                                                   : "---");
-    if (!audioAvailable) {
+
+    if (ImGui::SliderFloat("CRT Warp", &uWarp, 0.0f, 4.0f))
+      program.set("uWarp", uWarp);
+    if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
+      program.set("uScan", uScan);
+    if (ImGui::SliderFloat("Focus Distance", &uFocusDistance, 1.0f, 2000.0f,
+                           "%.1f"))
+      program.set("uFocusDistance", uFocusDistance);
+    if (ImGui::SliderFloat("Aperture Size", &uApertureSize, 0.0f, 50.0f,
+                           "%.3f"))
+      program.set("uApertureSize", uApertureSize);
+    if (ImGui::SliderInt("Focus Samples", &uFocusSamples, 1, 8))
+      program.set("uFocusSamples", uFocusSamples);
+
+    ImGui::SeparatorText("Audio");
+    if (!audio.isAvailable()) {
       ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");
+    } else {
+      static float musicVolume = 0.5f;
+      if (ImGui::SliderFloat("Music Volume", &musicVolume, 0.0f, 1.0f))
+        audio.setMusicVolume(musicVolume);
+      if (ImGui::Button("Play Explosion SFX"))
+        audio.playSFX("src/audio/explosion.wav");
     }
     ImGui::End();
   }
@@ -196,6 +323,11 @@ struct MainApp : public App {
     } else if (action == Action::RELEASE) {
       keys[(int)key] = false;
     }
+
+    if (action == Action::PRESS) {
+      explosions.spawn(camera.worldPosition, 10.0);
+      audio.playSFX("src/audio/explosion.wav");
+    }
   }
 
   void moveCallback(const vec2 &movement, bool leftButton, bool rightButton,
@@ -206,6 +338,7 @@ struct MainApp : public App {
 
   void resizeCallback(const vec2 &resolution) override {
     camera.resize(resolution.x / resolution.y);
+    program.set("uResolution", resolution);
   }
 };
 
