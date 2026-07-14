@@ -1,31 +1,39 @@
 #include <filesystem>
+#include <string>
+#include <vector>
+
+#include <imgui.h>
+
 #include <glad/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-using namespace glm;
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
-#include <imgui.h>
-
-#include <cinematic.cpp>
 #include <framework/app.hpp>
 #include <framework/camera.hpp>
 #include <framework/gl/program.hpp>
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
+#include <framework/objparser.hpp>
 
-#include <string>
-#include <unordered_map>
-#include <vector>
-
+#include "explosions.h"
 #include "multifile_shaders.h"
+
+#include "cinematic.cpp" // source file import?
+
+using namespace glm;
 
 struct MainApp : public App {
   Program program;
   Mesh mesh;
   Camera camera;
   AssetManager assetManager;
+
   CinematicDirector director;
+  Explosions explosions;
+
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 1.0;
   float uFar = 1'000'000.0;
@@ -38,19 +46,55 @@ struct MainApp : public App {
   float uScan = 0.75f;
   vec3 fightPos = vec3(-600.0, -600.0, -600.0);
   bool uInLinearSpace = false;
+  float uFocusDistance = 500.0f;
+  float uApertureSize = 0.0f;
+  int uFocusSamples = 1;
 
-  bool uLaserActive = true;
-  vec3 uLaserStart = vec3(7.0f, -30.0f, -7.0f);
-  vec3 uLaserEnd = vec3(7.0f, 30.0f, -7.0f);
+  // Big blue laser: fired by "oldman" towards the sun (uLightDir). The oldman
+  // mesh is currently rendered static at the OBJ's raw vertex positions (see
+  // CLAUDE.md), i.e. at the world origin, so that's where the beam starts.
+  static constexpr vec3 kOldmanMuzzle = vec3(0.0f, 1.0f, 0.0f);
+  static constexpr float kLaserLength = 50000.0f; // km, well past the moon
+  bool uLaserActive = false; // must not be visible before it's triggered
+  vec3 uLaserStart = kOldmanMuzzle;
+  vec3 uLaserEnd = kOldmanMuzzle;
   float uLaserRadius = 0.5f;
   vec3 uLaserColor = vec3(0.1f, 0.4f, 1.0f); // blue halo
   vec3 uLaserCoreColor = vec3(0.8f, 0.9f, 1.0f);
-  float uLaserGlowRadius = 3.0f; // no less than 50, 200 looks really good
-  float uLaserGlowIntensity =
-      1.0f; // Shoul be atleast 2.5, and not more than 4.0
+  float uLaserGlowRadius = 3.0f;
+  float uLaserGlowIntensity = 1.0f;
+  // Cinematic firing window (seconds into uFlightTime); kept separate from
+  // uLaserActive so ImGui can still force it on/off manually while uAutoCam
+  // is off.
+  float uLaserFireStart = 15.0f;
+  float uLaserFireEnd = 20.0f;
 
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
+
+  void loadObj(Program &program, const std::string &filename) {
+    std::vector<Mesh::VertexPTN> vertices;
+    std::vector<unsigned int> indices;
+    ObjParser::parse(filename, vertices, indices);
+
+    // Output mesh size
+    GLuint triangleCount = indices.size() / 3;
+
+    // Pass the vertices to the shader as vec4 array
+    // Each vertex is 2 vec4s arranged as:
+    // (vec4(Px, Py, Pz, Cx), vec4(Cy, Nx, Ny, Nz)) with P = Position, C =
+    // Texture Coordinate, N = Normal
+    glProgramUniform4fv(program.handle, program.uniform("uVertices"),
+                        vertices.size() * 2, value_ptr(vertices[0].position));
+
+    // Pass the indices to the shader as uvec3 array, each uvec3 being a
+    // triangle
+    glProgramUniform3uiv(program.handle, program.uniform("uIndices"),
+                         triangleCount, indices.data());
+
+    // Pass triangle count to the shader
+    program.set("uTriangleCount", triangleCount);
+  }
 
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
@@ -71,6 +115,7 @@ struct MainApp : public App {
                           201.0f);
 
     // Init uniforms
+    program.set("uLightColor", vec3(1.0));
     program.set("uLightDir", uLightDir);
     program.set("uNear", uNear);
     program.set("uFar", uFar);
@@ -81,18 +126,28 @@ struct MainApp : public App {
     program.set("uScan", uScan);
     program.set("uResolution", resolution);
     program.set("uInLinearSpace", uInLinearSpace);
+    program.set("uFocusDistance", uFocusDistance);
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
     program.set("uLaserActive", uLaserActive);
     program.set("uLaserStart", uLaserStart);
-    program.set("uLaserEnd", uLaserEnd);
+    program.set("uLaserEnd", uLaserStart + normalize(uLightDir) * kLaserLength);
     program.set("uLaserRadius", uLaserRadius);
     program.set("uLaserColor", uLaserColor);
     program.set("uLaserCoreColor", uLaserCoreColor);
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
+    loadObj(program, "meshes/lowpolysphere.obj");
     program.use();
+
+    explosions.init();
   }
 
   void render() override {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    program.use();
+
     // autocam
     if (uAutoCam == true) {
       uFlightTime += App::delta;
@@ -108,6 +163,15 @@ struct MainApp : public App {
                            2.5f);
       } else {
         assetManager.despawn("attacker");
+      }
+
+      // fire the laser only inside its cinematic window; must be invisible
+      // the rest of the time
+      bool laserShouldFire =
+          uFlightTime >= uLaserFireStart && uFlightTime < uLaserFireEnd;
+      if (laserShouldFire != uLaserActive) {
+        uLaserActive = laserShouldFire;
+        program.set("uLaserActive", uLaserActive);
       }
       // gets the smooth camera curve
       camera.worldPosition = CinematicSpline::getInterpolatedPosition(
@@ -158,17 +222,41 @@ struct MainApp : public App {
     // update objects for shader
     assetManager.updateShaderUniforms(program);
 
+    // laser always points from oldman towards the current light (sun)
+    // direction, so it stays aimed correctly if uLightDir changes at runtime
+    program.set("uLaserEnd", uLaserStart + normalize(uLightDir) * kLaserLength);
+
     // Update camera information on change
-    if (camera.updateIfChanged()) {
+    bool camera_changed = camera.updateIfChanged();
+    if (camera_changed) {
       program.set("uCameraMatrix", camera.cameraMatrix);
       program.set("uAspectRatio", camera.aspectRatio);
       program.set("uFocalLength", camera.focalLength);
       program.set("uCameraPosition", camera.worldPosition);
+      // change focus distanz to current position
+      uFocusDistance =
+          max(100.0f, glm::distance(camera.worldPosition, camera.target));
+      program.set("uFocusDistance", uFocusDistance);
     }
 
     // We already bind the program in the constructor, so we don't need to bind
     // it again here
     mesh.draw();
+
+    explosions.render(camera, App::delta, camera_changed);
+    // focus blur only during explosion
+    if (explosions.isActive()) {
+      uApertureSize = 15.0f;
+      uFocusSamples = 4;
+    } else {
+      // goes down slowly instead of instantly
+      // glm::mix(a, b, c) = a + (b - a) * c
+      uApertureSize = glm::mix(uApertureSize, 0.0f, 0.05f);
+      uFocusSamples = uApertureSize < 0.1f ? 1 : 4;
+    }
+    // after every frame
+    program.set("uApertureSize", uApertureSize);
+    program.set("uFocusSamples", uFocusSamples);
   }
 
   void buildImGui() override {
@@ -210,14 +298,18 @@ struct MainApp : public App {
       program.set("uWarp", uWarp);
     if (ImGui::SliderFloat("CRT Scan", &uScan, 0.0f, 4.0f))
       program.set("uScan", uScan);
+    if (ImGui::SliderFloat("Focus Distance", &uFocusDistance, 1.0f, 2000.0f,
+                           "%.1f"))
+      program.set("uFocusDistance", uFocusDistance);
+    if (ImGui::SliderFloat("Aperture Size", &uApertureSize, 0.0f, 50.0f,
+                           "%.3f"))
+      program.set("uApertureSize", uApertureSize);
+    if (ImGui::SliderInt("Focus Samples", &uFocusSamples, 1, 8))
+      program.set("uFocusSamples", uFocusSamples);
 
     ImGui::SeparatorText("Big Blue Laser");
     if (ImGui::Checkbox("Laser Active", &uLaserActive))
       program.set("uLaserActive", uLaserActive);
-    if (ImGui::DragFloat3("Laser Start", value_ptr(uLaserStart), 5.0f))
-      program.set("uLaserStart", uLaserStart);
-    if (ImGui::DragFloat3("Laser End", value_ptr(uLaserEnd), 5.0f))
-      program.set("uLaserEnd", uLaserEnd);
     if (ImGui::SliderFloat("Laser Radius", &uLaserRadius, 0.1f, 100.0f, "%.2f",
                            ImGuiSliderFlags_Logarithmic))
       program.set("uLaserRadius", uLaserRadius);
@@ -229,9 +321,10 @@ struct MainApp : public App {
                            "%.2f", ImGuiSliderFlags_Logarithmic))
       program.set("uLaserGlowRadius", uLaserGlowRadius);
     if (ImGui::SliderFloat("Laser Glow Intensity", &uLaserGlowIntensity, 0.0f,
-                           5.0f))
+                           4.0f))
       program.set("uLaserGlowIntensity", uLaserGlowIntensity);
-
+    ImGui::SliderFloat("Laser Fire Start (s)", &uLaserFireStart, 0.0f, 400.0f);
+    ImGui::SliderFloat("Laser Fire End (s)", &uLaserFireEnd, 0.0f, 400.0f);
     ImGui::End();
   }
 
@@ -248,6 +341,10 @@ struct MainApp : public App {
       keys[(int)key] = true;
     } else if (action == Action::RELEASE) {
       keys[(int)key] = false;
+    }
+
+    if (action == Action::PRESS) {
+      explosions.spawn(camera.worldPosition, 10.0);
     }
   }
 
