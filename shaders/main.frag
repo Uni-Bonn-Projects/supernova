@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 
 in vec3 viewDir;
 out vec3 fragColor;
@@ -62,7 +62,7 @@ void main() {
   vec2 ndc = uv * 2.0 - 1.0;
 
   // Renormalize after interpolation (with crt)
-  vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength)); 
+  vec3 rayDir = normalize(mat3(uCameraMatrix) * vec3(ndc.x * uAspectRatio, ndc.y, -uFocalLength));
 
   // focus blur
   // world directions for focusPoint

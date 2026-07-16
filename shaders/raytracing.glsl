@@ -42,11 +42,11 @@ RaytraceResult raytraceOldman(
   RaytraceResult result
 ) {
   // Loop through each triangle uIndices[i].xyz
-  for (uint i = 0u; i < uTriangleCount; i++) {
+  for (uint i = 0u; i < umesh.triangleCount; i++) {
     // Fetch vertex positions
-    vec3 v0 = uVertices[uIndices[i].x * 2u].xyz;
-    vec3 v1 = uVertices[uIndices[i].y * 2u].xyz;
-    vec3 v2 = uVertices[uIndices[i].z * 2u].xyz;
+    vec3 v0 = umesh.vertices[umesh.indices[i].x].xyz;
+    vec3 v1 = umesh.vertices[umesh.indices[i].y].xyz;
+    vec3 v2 = umesh.vertices[umesh.indices[i].z].xyz;
 
     vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
 
@@ -55,9 +55,9 @@ RaytraceResult raytraceOldman(
       vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
 
       // Fetch vertex normals
-      vec3 n0 = uVertices[uIndices[i].x * 2u + 1u].yzw;
-      vec3 n1 = uVertices[uIndices[i].y * 2u + 1u].yzw;
-      vec3 n2 = uVertices[uIndices[i].z * 2u + 1u].yzw;
+      vec3 n0 = umesh.normals[umesh.indices[i].x].xyz;
+      vec3 n1 = umesh.normals[umesh.indices[i].y].xyz;
+      vec3 n2 = umesh.normals[umesh.indices[i].z].xyz;
 
       result.hitPos = rayOrigin + curResult.z * rayDir;
       result.normal = normalize(mat3(n0, n1, n2) * barycentrics);
