@@ -1,4 +1,5 @@
 #include "glm/gtc/type_ptr.hpp"
+#include <cassert>
 #include <glm/glm.hpp>
 
 #include <framework/mesh.hpp>
@@ -20,29 +21,33 @@ SNMesh meshFromObj(const std::string &filename) {
   std::vector<unsigned int> indices;
   ObjParser::parse(filename, vertices, indices);
 
-  self.edgeCount = indices.size() / 3;
+  self.triangleCount = indices.size() / 3;
   self.pointCount = vertices.size();
+
+  assert(self.triangleCount <= MAX_TRIANGLE_COUNT);
+  assert(self.pointCount <= MAX_TRIANGLE_COUNT);
+
   for (auto i = 0; i < self.pointCount; i++) {
-    self.vertices[i] = vertices[i].position;
-    self.normals[i] = vertices[i].normal;
+    self.vertices[i] = vec4(vertices[i].position, 0);
+    self.normals[i] = vec4(vertices[i].normal, 0);
   }
-  for (auto i = 0; i < self.edgeCount; i += 1) {
+  for (auto i = 0; i < self.triangleCount; i += 1) {
     auto j = i * 3;
-    self.indices[i] = glm::vec3(indices[j], indices[j + 1], indices[j + 2]);
+    self.indices[i] = vec4(indices[j], indices[j + 1], indices[j + 2], 0);
   }
 
   return self;
 }
 
-SNMesh moveMesh(SNMesh self, float km, vec3 dir) {
+SNMesh &moveMesh(SNMesh &self, float km, vec3 dir) {
   for (uint i = 0; i < self.pointCount; i++) {
-    self.vertices[i] += km * dir;
+    self.vertices[i] += vec4(km * dir, 0);
   }
 
   return self;
 }
 
-SNMesh scaleMesh(SNMesh self, float scale, vec3 amount) {
+SNMesh &scaleMesh(SNMesh &self, float scale, vec3 amount) {
   for (uint i = 0; i < self.pointCount; i++) {
     self.vertices[i].x *= scale * amount.x;
     self.vertices[i].y *= scale * amount.y;
@@ -52,28 +57,19 @@ SNMesh scaleMesh(SNMesh self, float scale, vec3 amount) {
   return self;
 }
 
-SNMesh initMesh(SNMesh self, Program &program) {
-  // Pass the vertices to the shader as vec3 array
-  glProgramUniform3fv(program.handle, program.uniform("uVertices"),
-                      self.pointCount, value_ptr(self.vertices[0]));
+SNMesh &initMesh(SNMesh &self, Program &program) {
+  GLuint ssbo;
+  glGenBuffers(1, &ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 
-  // Pass the normals to the shader as vec3 array
-  glProgramUniform3fv(program.handle, program.uniform("uNormals"),
-                      self.pointCount, value_ptr(self.normals[0]));
+  glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SNMesh), &self, GL_STATIC_DRAW);
 
-  // Pass the indices to the shader as uvec3 array, each uvec3 being a
-  // triangle
-  glProgramUniform3uiv(program.handle, program.uniform("uIndices"),
-                       self.edgeCount, value_ptr(self.indices[0]));
-
-  // Pass triangle count to the shader
-  program.set("uTriangleCount", self.edgeCount);
-  program.set("uVerticesCount", self.pointCount);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
 
   return self;
 }
 
-SNMesh updateMesh(SNMesh self, Program &program) {
+SNMesh &updateMesh(SNMesh &self, Program &program) {
   // TODO: impl
   return self;
 }
