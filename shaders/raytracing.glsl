@@ -1,37 +1,9 @@
 #include "common.glsl"
+#include "csg.glsl"
 #include "math.glsl"
 #include "procedural_raytracing.glsl"
 #include "uniforms.glsl"
 #line 6
-
-vec3 intersectTriangle(
-  vec3 rayOrigin,
-  vec3 rayDir,
-  vec3 v0,
-  vec3 v1,
-  vec3 v2
-) {
-  // edges
-  vec3 e1 = v1 - v0;
-  vec3 e2 = v2 - v0;
-
-  // plane
-  vec3 n = cross(e1, e2);
-  vec3 c = v0;
-
-  // ray till triangle
-  float t = dot(n, c - rayOrigin) / dot(n, rayDir);
-  vec3 p = rayOrigin + t * rayDir - c;
-
-  float u = dot(cross(p, e2), n) / dot(n, n);
-  float v = dot(cross(e1, p), n) / dot(n, n);
-
-  if (u > 0 && v > 0 && u + v < 1 && t > 0) {
-    return vec3(u, v, t);
-  } else {
-    return vec3(Inf);
-  }
-}
 
 /// We are only using triangles to render OLDMAN. Therefore, this function
 /// raytraces all triangle stuff with some values, like color, hardcoded for
@@ -41,31 +13,25 @@ RaytraceResult raytraceOldman(
   vec3 rayDir,
   RaytraceResult result
 ) {
-  // Loop through each triangle uIndices[i].xyz
-  for (uint i = 0u; i < umesh.triangleCount; i++) {
-    // Fetch vertex positions
-    vec3 v0 = umesh.vertices[umesh.indices[i].x].xyz;
-    vec3 v1 = umesh.vertices[umesh.indices[i].y].xyz;
-    vec3 v2 = umesh.vertices[umesh.indices[i].z].xyz;
+  CSGInterval topDome = CSGSub(
+      calcCSGInterval(rayOrigin, rayDir, 0u),
+      calcCSGInterval(rayOrigin, rayDir, 1u)
+    );
+  CSGInterval mainBody = CSGOr(
+      topDome,
+      calcCSGInterval(rayOrigin, rayDir, 2u)
+    );
 
-    vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
-
-    // Overdraw if closer
-    if (curResult.z < result.distance) {
-      vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
-
-      // Fetch vertex normals
-      vec3 n0 = umesh.normals[umesh.indices[i].x].xyz;
-      vec3 n1 = umesh.normals[umesh.indices[i].y].xyz;
-      vec3 n2 = umesh.normals[umesh.indices[i].z].xyz;
-
-      result.hitPos = rayOrigin + curResult.z * rayDir;
-      result.normal = normalize(mat3(n0, n1, n2) * barycentrics);
-      result.objectColor = starshipColor;
-      result.distance = curResult.z;
-      result.glowing = false;
-    }
+  // attach sections
+  CSGInterval fullBody = mainBody;
+  for (uint i = 0; i < 12; i++) {
+    fullBody = CSGOr(
+        fullBody,
+        calcCSGInterval(rayOrigin, rayDir, i + 3u)
+      );
   }
+
+  result = renderCSGInterval(rayOrigin, rayDir, result, fullBody);
 
   return result;
 }
@@ -83,12 +49,12 @@ bool inShadow(vec3 pos, vec3 normal) {
   vec3 shadowOrigin = pos + normal * max(1e-3, length(pos) * 1e-6);
 
   RaytraceResult result = RaytraceResult(
-    vec3(Inf),
-    vec3(Inf),
-    vec3(0.0),
-    uFar,
-    true
-  );
+      vec3(Inf),
+      vec3(Inf),
+      vec3(0.0),
+      uFar,
+      true
+    );
 
   result = raytraceOldman(shadowOrigin, uLightDir, result);
   result = proceduralScene(shadowOrigin, uLightDir, result);
@@ -119,12 +85,12 @@ vec3 calcLighting(RaytraceResult x) {
 /// glow) behind solid geometry.
 vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitDistance) {
   RaytraceResult result = RaytraceResult(
-    vec3(Inf), // anything can be here
-    vec3(Inf), // anything can be here
-    background_color,
-    uFar,
-    true
-  );
+      vec3(Inf), // anything can be here
+      vec3(Inf), // anything can be here
+      background_color,
+      uFar,
+      true
+    );
 
   // render triangles / oldman
   result = raytraceOldman(rayOrigin, rayDir, result);
@@ -156,8 +122,7 @@ vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
   float F = dot(ba, r);
   float denom = A * E - B * B;
   float tc = (abs(denom) < 1e-6)
-      ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A
-      : (B * F - C * E) / denom;
+    ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A : (B * F - C * E) / denom;
 
   float W = uLaserGlowRadius * 4.0; // half-window
   float t0 = max(uNear, tc - W);

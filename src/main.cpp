@@ -1,6 +1,5 @@
 #include <filesystem>
 #include <string>
-#include <vector>
 
 #include <imgui.h>
 
@@ -20,8 +19,9 @@
 
 #include "audio_engine.h"
 #include "explosions.h"
-#include "meshes.h"
 #include "multifile_shaders.h"
+#include "oldman.h"
+#include "snmesh.h"
 
 #include "cinematic.cpp" // source file import?
 
@@ -38,6 +38,7 @@ struct MainApp : public App {
   CinematicDirector director;
   Explosions explosions;
   AudioEngine audio;
+  Oldman oldman;
 
   // timed explosion tied to the audio cue below, both keyed off uFlightTime
   const float kAttackExplosionTime = 10.0f;
@@ -132,11 +133,14 @@ struct MainApp : public App {
     program.set("uLaserCoreColor", uLaserCoreColor);
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
-    sn::SNMesh mesh = sn::meshFromObj("meshes/lowpolysphere.obj");
-    initMesh(mesh, program, 0);
     program.use();
 
     explosions.init();
+
+    SNMesh unit_sphere, unit_cube;
+    unit_sphere.fromObj("meshes/lowpolysphere.obj");
+    unit_cube.fromObj("meshes/cube.obj");
+    oldman.init(unit_sphere, unit_cube, program, 0);
   }
 
   ~MainApp() override { audio.shutdown(); }
