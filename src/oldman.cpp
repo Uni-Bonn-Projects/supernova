@@ -41,7 +41,10 @@ Oldman &Oldman::init(SNMesh unit_sphere, SNMesh unit_cube, Program &program,
   return *this;
 }
 Oldman &Oldman::update(Program &program) {
-  // TODO: impl
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssbo_id);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(Oldman), this);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
   return *this;
 }
 
