@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "framework/gl/program.hpp"
-#include "meshes.h"
+#include "snmesh.h"
 
 namespace sn {
 

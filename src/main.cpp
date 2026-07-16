@@ -20,9 +20,9 @@
 
 #include "audio_engine.h"
 #include "explosions.h"
-#include "meshes.h"
 #include "multifile_shaders.h"
 #include "oldman.h"
+#include "snmesh.h"
 
 #include "cinematic.cpp" // source file import?
 

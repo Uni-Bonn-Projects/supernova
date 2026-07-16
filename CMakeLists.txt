@@ -12,7 +12,7 @@ set(SRC
     src/explosions.cpp
     src/audio_engine.cpp
     src/audio/miniaudio.cpp
-    src/meshes.cpp
+    src/snmesh.cpp
     src/oldman.cpp)
 
 # install framework

@@ -10,7 +10,7 @@
 
 using namespace glm;
 
-#include "meshes.h"
+#include "snmesh.h"
 
 namespace sn {
 

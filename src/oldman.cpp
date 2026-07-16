@@ -2,8 +2,8 @@
 
 #include "framework/gl/program.hpp"
 #include "glm/trigonometric.hpp"
-#include "meshes.h"
 #include "oldman.h"
+#include "snmesh.h"
 
 namespace sn {
 
