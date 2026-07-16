@@ -18,6 +18,7 @@
 #include <framework/mesh.hpp>
 #include <framework/objparser.hpp>
 
+#include "audio_engine.h"
 #include "explosions.h"
 #include "multifile_shaders.h"
 
@@ -33,6 +34,12 @@ struct MainApp : public App {
 
   CinematicDirector director;
   Explosions explosions;
+  AudioEngine audio;
+
+  // timed explosion tied to the audio cue below, both keyed off uFlightTime
+  const float kAttackExplosionTime = 10.0f;
+  vec3 attackExplosionPos = vec3(0.0f);
+  bool attackExplosionFired = false;
 
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 1.0;
@@ -94,6 +101,15 @@ struct MainApp : public App {
                           attackerPos, 56.0f);
     director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
                           201.0f);
+    attackExplosionPos = attackerPos;
+
+    // Audio: an underlying score loops for the whole cinematic, and sound
+    // effects are triggered off the same uFlightTime clock that drives the
+    // camera/spawn timeline (see the scheduleSFX call and the matching
+    // kAttackExplosionTime check in render()).
+    audio.init();
+    audio.playMusic("src/audio/Geist.wav", 0.5f);
+    audio.scheduleSFX(kAttackExplosionTime, "src/audio/explosion.wav");
 
     // Init uniforms
     program.set("uLightColor", vec3(1.0));
@@ -116,6 +132,8 @@ struct MainApp : public App {
     explosions.init();
   }
 
+  ~MainApp() override { audio.shutdown(); }
+
   void render() override {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -137,6 +155,14 @@ struct MainApp : public App {
       } else {
         assetManager.despawn("attacker");
       }
+
+      // timed explosion (visual), paired with the SFX scheduled in the
+      // constructor at the same kAttackExplosionTime
+      if (!attackExplosionFired && uFlightTime >= kAttackExplosionTime) {
+        explosions.spawn(attackExplosionPos, 10.0);
+        attackExplosionFired = true;
+      }
+      audio.update(uFlightTime);
       // gets the smooth camera curve
       camera.worldPosition = CinematicSpline::getInterpolatedPosition(
           director.timelineKeyframes, uFlightTime, false);
@@ -247,8 +273,11 @@ struct MainApp : public App {
     if (ImGui::Checkbox("In linear space", &uInLinearSpace))
       program.set("uInLinearSpace", uInLinearSpace);
 
-    if (ImGui::Checkbox("Automatic Camera", &uAutoCam))
+    if (ImGui::Checkbox("Automatic Camera", &uAutoCam)) {
       uFlightTime = 0.0f;
+      attackExplosionFired = false;
+      audio.resetSchedule();
+    }
     ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
                             : uFlightTime < 12.0f ? "2 - Attacker"
                             : uFlightTime < 25.0f ? "3 - Kampf"
@@ -266,6 +295,17 @@ struct MainApp : public App {
       program.set("uApertureSize", uApertureSize);
     if (ImGui::SliderInt("Focus Samples", &uFocusSamples, 1, 8))
       program.set("uFocusSamples", uFocusSamples);
+
+    ImGui::SeparatorText("Audio");
+    if (!audio.isAvailable()) {
+      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");
+    } else {
+      static float musicVolume = 0.5f;
+      if (ImGui::SliderFloat("Music Volume", &musicVolume, 0.0f, 1.0f))
+        audio.setMusicVolume(musicVolume);
+      if (ImGui::Button("Play Explosion SFX"))
+        audio.playSFX("src/audio/explosion.wav");
+    }
     ImGui::End();
   }
 
@@ -286,6 +326,7 @@ struct MainApp : public App {
 
     if (action == Action::PRESS) {
       explosions.spawn(camera.worldPosition, 10.0);
+      audio.playSFX("src/audio/explosion.wav");
     }
   }
 
