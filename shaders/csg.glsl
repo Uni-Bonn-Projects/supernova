@@ -61,7 +61,7 @@ CSGInterval calcCSGInterval(
 ) {
   CSGInterval result = CSGInterval(
       Inf,
-      -1.0,
+      -Inf,
       vec3(0.0),
       vec3(0.0)
     );
@@ -76,14 +76,16 @@ CSGInterval calcCSGInterval(
 
     bool isNearer = curResult.z < result.near;
     bool isFurther = curResult.z > result.far;
-    if (isNearer || isFurther) {
+    if (curResult.z > 0.0 && curResult.z < Inf) { // valid result
       vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
       vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
 
-      if (isNearer) {
+      // if nearer and an entry point into the mesh
+      if (isNearer && dot(normal, rayDir) < 0.0) {
         result.near = curResult.z;
         result.normalNear = normal;
       }
+
       if (isFurther) {
         result.far = curResult.z;
         result.normalFar = normal;
