@@ -1,6 +1,5 @@
 #include "common.glsl"
 #include "math.glsl"
-#include "mesh.glsl"
 #include "procedural_raytracing.glsl"
 #include "uniforms.glsl"
 #line 6
