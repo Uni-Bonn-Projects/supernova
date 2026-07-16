@@ -25,7 +25,11 @@ Oldman &Oldman::init(SNMesh unit_sphere, SNMesh unit_cube, Program &program,
     auto dir = vec3(cos(angle), 0.0, sin(angle));
 
     this->sections[i] = unit_cube;
-    this->sections[i].scale(10, vec3(5, 1, 5)).move(100, dir);
+    this->sections[i]
+        .scale(5, vec3(5, 1, 5))
+        .rotate(-angle, vec3(0, 1, 0))
+        .move(115, vec3(dir))
+        .move(5, vec3(0, 1, 0));
   }
 
   glGenBuffers(1, &this->ssbo_id);
