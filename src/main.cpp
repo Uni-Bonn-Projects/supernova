@@ -1,6 +1,5 @@
 #include <filesystem>
 #include <string>
-#include <vector>
 
 #include <imgui.h>
 
