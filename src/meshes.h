@@ -12,9 +12,7 @@ namespace sn {
 const size_t MAX_POINT_COUNT = 600;
 const size_t MAX_TRIANGLE_COUNT = 100;
 
-struct SNMesh {
-  GLuint ssbo;
-
+struct alignas(16) SNMesh {
   // using vec4's because of 16 byte alignment of glsl std430 layout
   glm::vec4 vertices[MAX_POINT_COUNT];
   glm::vec4 normals[MAX_POINT_COUNT];
@@ -22,6 +20,8 @@ struct SNMesh {
 
   uint32_t pointCount;
   uint32_t triangleCount;
+
+  GLuint ssbo_id;
 };
 
 SNMesh meshFromObj(const std::string &filename);

@@ -9,6 +9,7 @@ struct SNMesh {
   uvec4 indices[MAX_TRIANGLE_COUNT];
   uint pointCount;
   uint triangleCount;
+  uint ssbo_id;
 };
 
 struct RaytraceResult {

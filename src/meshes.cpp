@@ -58,24 +58,21 @@ SNMesh &scaleMesh(SNMesh &self, float scale, vec3 amount) {
 }
 
 SNMesh &initMesh(SNMesh &self, Program &program, uint32_t binding) {
-  glGenBuffers(1, &self.ssbo);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.ssbo);
+  glGenBuffers(1, &self.ssbo_id);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.ssbo_id);
 
-  auto size = sizeof(SNMesh) - sizeof(GLuint); // size without the ssbo field
-  auto data = &self.vertices;                  // start after the ssbo field
-  glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SNMesh), &self,
+               GL_DYNAMIC_DRAW);
 
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, self.ssbo);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, self.ssbo_id);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   return self;
 }
 
 SNMesh &updateMesh(SNMesh &self, Program &program) {
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.ssbo);
-  auto size = sizeof(SNMesh) - sizeof(GLuint); // size without the ssbo field
-  auto data = &self.vertices;                  // start after the ssbo field
-  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size, data);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.ssbo_id);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(SNMesh), &self);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   return self;
