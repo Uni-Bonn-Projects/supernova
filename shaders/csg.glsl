@@ -37,14 +37,13 @@ void getTriangleData(uint meshIndex, uint triIndex, out vec3 v0, out vec3 v1, ou
     n1 = oldman.bottom_dome.normals[tri.y].xyz;
     n2 = oldman.bottom_dome.normals[tri.z].xyz;
   } else { // sections
-    SNMesh section = oldman.sections[14 - meshIndex];
-    uvec4 tri = section.indices[triIndex];
-    v0 = section.vertices[tri.x].xyz;
-    v1 = section.vertices[tri.y].xyz;
-    v2 = section.vertices[tri.z].xyz;
-    n0 = section.normals[tri.x].xyz;
-    n1 = section.normals[tri.y].xyz;
-    n2 = section.normals[tri.z].xyz;
+    uvec4 tri = oldman.sections[14 - meshIndex].indices[triIndex];
+    v0 = oldman.sections[14 - meshIndex].vertices[tri.x].xyz;
+    v1 = oldman.sections[14 - meshIndex].vertices[tri.y].xyz;
+    v2 = oldman.sections[14 - meshIndex].vertices[tri.z].xyz;
+    n0 = oldman.sections[14 - meshIndex].normals[tri.x].xyz;
+    n1 = oldman.sections[14 - meshIndex].normals[tri.y].xyz;
+    n2 = oldman.sections[14 - meshIndex].normals[tri.z].xyz;
   }
 }
 
