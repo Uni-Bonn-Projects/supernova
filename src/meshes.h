@@ -15,15 +15,13 @@ const size_t MAX_TRIANGLE_COUNT = 100;
 struct SNMesh {
   GLuint ssbo;
 
-  struct data_t {
-    // using vec4's because of 16 byte alignment of glsl std430 layout
-    glm::vec4 vertices[MAX_POINT_COUNT];
-    glm::vec4 normals[MAX_POINT_COUNT];
-    glm::uvec4 indices[MAX_TRIANGLE_COUNT];
+  // using vec4's because of 16 byte alignment of glsl std430 layout
+  glm::vec4 vertices[MAX_POINT_COUNT];
+  glm::vec4 normals[MAX_POINT_COUNT];
+  glm::uvec4 indices[MAX_TRIANGLE_COUNT];
 
-    uint32_t pointCount;
-    uint32_t triangleCount;
-  } data;
+  uint32_t pointCount;
+  uint32_t triangleCount;
 };
 
 SNMesh meshFromObj(const std::string &filename);
