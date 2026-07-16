@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdint>
 
+#include "glm/gtc/matrix_transform.hpp"
 #include <framework/mesh.hpp>
 #include <framework/objparser.hpp>
 #include <glm/glm.hpp>
@@ -50,6 +51,16 @@ SNMesh &SNMesh::scale(float scale, vec3 amount) {
     this->vertices[i].x *= scale * amount.x;
     this->vertices[i].y *= scale * amount.y;
     this->vertices[i].z *= scale * amount.z;
+  }
+
+  return *this;
+}
+
+SNMesh &SNMesh::rotate(float angle, glm::vec3 axis) {
+  auto R = glm::rotate(mat4(1.0f), angle, normalize(axis));
+
+  for (uint i = 0; i < this->pointCount; i++) {
+    this->vertices[i] = R * this->vertices[i];
   }
 
   return *this;

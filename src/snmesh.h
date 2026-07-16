@@ -32,6 +32,9 @@ struct alignas(16) SNMesh {
    * The vec3 amount defines how much to scale in which axis. (in percent)
    */
   SNMesh &scale(float scale, glm::vec3 amount);
+  /** Rotate a mesh by the given angle (in radians) around a given axis.
+   */
+  SNMesh &rotate(float angle, glm::vec3 axis);
 
   /** Initialise the mesh's data in the GPU.
    * Binding must match to one from the shader.
