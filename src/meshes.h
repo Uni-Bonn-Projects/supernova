@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 
 #include <framework/gl/program.hpp>
