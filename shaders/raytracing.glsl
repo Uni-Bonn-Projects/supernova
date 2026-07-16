@@ -59,7 +59,7 @@ RaytraceResult raytraceOldman(
       vec3 n1 = uVertices[uIndices[i].y * 2u + 1u].yzw;
       vec3 n2 = uVertices[uIndices[i].z * 2u + 1u].yzw;
 
-      result.hitPos = curResult;
+      result.hitPos = rayOrigin + curResult.z * rayDir;
       result.normal = normalize(mat3(n0, n1, n2) * barycentrics);
       result.objectColor = starshipColor;
       result.distance = curResult.z;
@@ -70,6 +70,32 @@ RaytraceResult raytraceOldman(
   return result;
 }
 
+/// Casts a ray from a hit point towards the (directional) light source and
+/// tests whether any scene geometry blocks it. Reuses the same intersection
+/// routines as the primary ray, so every object that can be hit can also
+/// cast a shadow.
+bool inShadow(vec3 pos, vec3 normal) {
+  // Bias the origin along the surface normal to avoid immediately
+  // re-intersecting the surface we just hit (shadow acne). The scene spans
+  // scales from a few km (starship/attackers) to hundreds of thousands of km
+  // (earth/moon), so the bias is scaled relative to the hit point's distance
+  // from the world origin instead of a fixed constant.
+  vec3 shadowOrigin = pos + normal * max(1e-3, length(pos) * 1e-6);
+
+  RaytraceResult result = RaytraceResult(
+    vec3(Inf),
+    vec3(Inf),
+    vec3(0.0),
+    uFar,
+    true
+  );
+
+  result = raytraceOldman(shadowOrigin, uLightDir, result);
+  result = proceduralScene(shadowOrigin, uLightDir, result);
+
+  return result.distance < uFar;
+}
+
 vec3 calcLighting(RaytraceResult x) {
   vec3 intensity;
   if (x.glowing || uInLinearSpace) {
@@ -78,8 +104,7 @@ vec3 calcLighting(RaytraceResult x) {
     // Lambert lighting term
     vec3 lighting = vec3(max(dot(x.normal, uLightDir), 0.0));
     // Test if something lies between the hit point and the light source
-    // float shadow = raymarchScene(isec.pos, uLightDir, uNear, uFar).depth >= uFar ? 1.0 : 0.0;
-    float shadow = 1.0; // FIXME: proper shadows
+    float shadow = inShadow(x.hitPos, x.normal) ? 0.0 : 1.0;
 
     intensity = lighting * shadow;
   }
