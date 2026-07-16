@@ -57,7 +57,26 @@ struct MainApp : public App {
   float uApertureSize = 0.0f;
   int uFocusSamples = 1;
 
-  bool keys[(int)Key::MENU]; // "bit map" for all keys
+  // Big blue laser: fired by "oldman" towards the sun (uLightDir). The oldman
+  // mesh is currently rendered static at the OBJ's raw vertex positions (see
+  // CLAUDE.md), i.e. at the world origin, so that's where the beam starts.
+  static constexpr vec3 kOldmanMuzzle = vec3(0.0f, 1.0f, 0.0f);
+  static constexpr float kLaserLength = 50000.0f; // km, well past the moon
+  bool uLaserActive = false; // must not be visible before it's triggered
+  vec3 uLaserStart = kOldmanMuzzle;
+  vec3 uLaserEnd = kOldmanMuzzle;
+  float uLaserRadius = 0.5f;
+  vec3 uLaserColor = vec3(0.1f, 0.4f, 1.0f); // blue halo
+  vec3 uLaserCoreColor = vec3(0.8f, 0.9f, 1.0f);
+  float uLaserGlowRadius = 3.0f;
+  float uLaserGlowIntensity = 1.0f;
+  // Cinematic firing window (seconds into uFlightTime); kept separate from
+  // uLaserActive so ImGui can still force it on/off manually while uAutoCam
+  // is off.
+  float uLaserFireStart = 15.0f;
+  float uLaserFireEnd = 20.0f;
+
+  bool keys[(int)Key::MENU];
   float move_speed = 1.0;
 
   void loadObj(Program &program, const std::string &filename) {
@@ -126,6 +145,14 @@ struct MainApp : public App {
     program.set("uFocusDistance", uFocusDistance);
     program.set("uApertureSize", uApertureSize);
     program.set("uFocusSamples", uFocusSamples);
+    program.set("uLaserActive", uLaserActive);
+    program.set("uLaserStart", uLaserStart);
+    program.set("uLaserEnd", uLaserStart + normalize(uLightDir) * kLaserLength);
+    program.set("uLaserRadius", uLaserRadius);
+    program.set("uLaserColor", uLaserColor);
+    program.set("uLaserCoreColor", uLaserCoreColor);
+    program.set("uLaserGlowRadius", uLaserGlowRadius);
+    program.set("uLaserGlowIntensity", uLaserGlowIntensity);
     loadObj(program, "meshes/lowpolysphere.obj");
     program.use();
 
@@ -156,6 +183,14 @@ struct MainApp : public App {
         assetManager.despawn("attacker");
       }
 
+      // fire the laser only inside its cinematic window; must be invisible
+      // the rest of the time
+      bool laserShouldFire =
+          uFlightTime >= uLaserFireStart && uFlightTime < uLaserFireEnd;
+      if (laserShouldFire != uLaserActive) {
+        uLaserActive = laserShouldFire;
+        program.set("uLaserActive", uLaserActive);
+      }
       // timed explosion (visual), paired with the SFX scheduled in the
       // constructor at the same kAttackExplosionTime
       if (!attackExplosionFired && uFlightTime >= kAttackExplosionTime) {
@@ -211,6 +246,10 @@ struct MainApp : public App {
     program.set("uTime", time);
     // update objects for shader
     assetManager.updateShaderUniforms(program);
+
+    // laser always points from oldman towards the current light (sun)
+    // direction, so it stays aimed correctly if uLightDir changes at runtime
+    program.set("uLaserEnd", uLaserStart + normalize(uLightDir) * kLaserLength);
 
     // Update camera information on change
     bool camera_changed = camera.updateIfChanged();
@@ -296,6 +335,24 @@ struct MainApp : public App {
     if (ImGui::SliderInt("Focus Samples", &uFocusSamples, 1, 8))
       program.set("uFocusSamples", uFocusSamples);
 
+    ImGui::SeparatorText("Big Blue Laser");
+    if (ImGui::Checkbox("Laser Active", &uLaserActive))
+      program.set("uLaserActive", uLaserActive);
+    if (ImGui::SliderFloat("Laser Radius", &uLaserRadius, 0.1f, 100.0f, "%.2f",
+                           ImGuiSliderFlags_Logarithmic))
+      program.set("uLaserRadius", uLaserRadius);
+    if (ImGui::ColorEdit3("Laser Glow Color", value_ptr(uLaserColor)))
+      program.set("uLaserColor", uLaserColor);
+    if (ImGui::ColorEdit3("Laser Core Color", value_ptr(uLaserCoreColor)))
+      program.set("uLaserCoreColor", uLaserCoreColor);
+    if (ImGui::SliderFloat("Laser Glow Radius", &uLaserGlowRadius, 0.5f, 200.0f,
+                           "%.2f", ImGuiSliderFlags_Logarithmic))
+      program.set("uLaserGlowRadius", uLaserGlowRadius);
+    if (ImGui::SliderFloat("Laser Glow Intensity", &uLaserGlowIntensity, 0.0f,
+                           4.0f))
+      program.set("uLaserGlowIntensity", uLaserGlowIntensity);
+    ImGui::SliderFloat("Laser Fire Start (s)", &uLaserFireStart, 0.0f, 400.0f);
+    ImGui::SliderFloat("Laser Fire End (s)", &uLaserFireEnd, 0.0f, 400.0f);
     ImGui::SeparatorText("Audio");
     if (!audio.isAvailable()) {
       ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");

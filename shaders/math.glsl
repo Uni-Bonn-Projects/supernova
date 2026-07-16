@@ -21,6 +21,13 @@ vec3 xInDir(float x, vec3 dir) {
   return x * normalize(dir);
 }
 
+/** Unsigned distance from pos to the line segment [a, b], used by the laser glow */
+float distToAxis(vec3 pos, vec3 a, vec3 b) {
+  vec3 pa = pos - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
 vec3 rotateZ(vec3 pos, float angle) {
   float c = cos(angle);
   float s = sin(angle);
