@@ -2,7 +2,6 @@
 #include "framework/camera.hpp"
 #include "framework/gl/program.hpp"
 #include "framework/mesh.hpp"
-#include "glm/common.hpp"
 #include "glm/fwd.hpp"
 #include <cassert>
 #include <cstdlib>
@@ -11,6 +10,8 @@
 #include "explosions.h"
 
 using namespace glm;
+
+namespace sn {
 
 // every particle is just a square
 const std::vector<float> VERTICES = {
@@ -187,3 +188,5 @@ bool Explosions::isActive(void) {
   }
   return false;
 }
+
+}; // namespace sn
