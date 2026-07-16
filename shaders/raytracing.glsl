@@ -55,12 +55,12 @@ bool inShadow(vec3 pos, vec3 normal) {
   vec3 shadowOrigin = pos + normal * max(1e-3, length(pos) * 1e-6);
 
   RaytraceResult result = RaytraceResult(
-    vec3(Inf),
-    vec3(Inf),
-    vec3(0.0),
-    uFar,
-    true
-  );
+      vec3(Inf),
+      vec3(Inf),
+      vec3(0.0),
+      uFar,
+      true
+    );
 
   result = raytraceOldman(shadowOrigin, uLightDir, result);
   result = proceduralScene(shadowOrigin, uLightDir, result);
@@ -91,12 +91,12 @@ vec3 calcLighting(RaytraceResult x) {
 /// glow) behind solid geometry.
 vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitDistance) {
   RaytraceResult result = RaytraceResult(
-    vec3(Inf), // anything can be here
-    vec3(Inf), // anything can be here
-    background_color,
-    uFar,
-    true
-  );
+      vec3(Inf), // anything can be here
+      vec3(Inf), // anything can be here
+      background_color,
+      uFar,
+      true
+    );
 
   // render triangles / oldman
   result = raytraceOldman(rayOrigin, rayDir, result);
@@ -128,8 +128,7 @@ vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
   float F = dot(ba, r);
   float denom = A * E - B * B;
   float tc = (abs(denom) < 1e-6)
-      ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A
-      : (B * F - C * E) / denom;
+    ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A : (B * F - C * E) / denom;
 
   float W = uLaserGlowRadius * 4.0; // half-window
   float t0 = max(uNear, tc - W);
