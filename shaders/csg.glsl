@@ -1,9 +1,27 @@
+#include "common.glsl"
 struct CSGInterval {
   float near;
   float far;
   vec3 normalNear;
   vec3 normalFar;
 };
+
+RaytraceResult renderCSGInterval(
+  vec3 rayOrigin,
+  vec3 rayDir,
+  RaytraceResult result,
+  CSGInterval x
+) {
+  if (x.near < result.distance) {
+    result.hitPos = rayOrigin + x.near * rayDir;
+    result.normal = x.normalNear;
+    result.objectColor = starshipColor;
+    result.distance = x.near;
+    result.glowing = false;
+  }
+
+  return result;
+}
 
 /// every point which is in a and b
 CSGInterval CSGAnd(CSGInterval a, CSGInterval b) {
