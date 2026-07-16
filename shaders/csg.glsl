@@ -54,17 +54,8 @@ uint getTriangleCount(uint meshIndex) {
   else return oldman.sections[14 - meshIndex].triangleCount;
 }
 
-CSGInterval calcCSGInterval(
-  vec3 rayOrigin,
-  vec3 rayDir,
-  uint meshIndex
-) {
-  CSGInterval result = CSGInterval(
-      Inf,
-      -Inf,
-      vec3(0.0),
-      vec3(0.0)
-    );
+CSGInterval calcCSGInterval(vec3 rayOrigin, vec3 rayDir, uint meshIndex) {
+  CSGInterval result = CSGInterval(Inf, -Inf, vec3(0.0), vec3(0.0));
 
   // for each triangle in current mesh
   uint triangleCount = getTriangleCount(meshIndex);
@@ -74,14 +65,21 @@ CSGInterval calcCSGInterval(
 
     vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
 
-    bool isNearer = curResult.z < result.near;
-    bool isFurther = curResult.z > result.far;
     if (curResult.z > 0.0 && curResult.z < Inf) { // valid result
+      // calc real geometry normal
+      vec3 edge1 = v1 - v0;
+      vec3 edge2 = v2 - v0;
+      vec3 realNormal = normalize(cross(edge1, edge2));
+
+      // calc normal given by the texture
       vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
       vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
 
-      // if nearer and an entry point into the mesh
-      if (isNearer && dot(normal, rayDir) < 0.0) {
+      bool isEntry = dot(realNormal, rayDir) < 0.0;
+      bool isNearer = curResult.z < result.near;
+      bool isFurther = curResult.z > result.far;
+
+      if (isNearer && isEntry) {
         result.near = curResult.z;
         result.normalNear = normal;
       }
@@ -91,6 +89,12 @@ CSGInterval calcCSGInterval(
         result.normalFar = normal;
       }
     }
+  }
+
+  // if we started inside the mesh
+  if (result.near == Inf && result.far > 0.0) {
+    result.near = 0.0;
+    result.normalNear = -rayDir;
   }
 
   return result;
