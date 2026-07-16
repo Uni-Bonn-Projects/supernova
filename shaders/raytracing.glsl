@@ -5,7 +5,6 @@
 #include "uniforms.glsl"
 #line 6
 
-
 /// We are only using triangles to render OLDMAN. Therefore, this function
 /// raytraces all triangle stuff with some values, like color, hardcoded for
 /// OLDMAN.
@@ -14,12 +13,25 @@ RaytraceResult raytraceOldman(
   vec3 rayDir,
   RaytraceResult result
 ) {
-  CSGInterval interval = CSGAnd(
+  CSGInterval topDome = CSGSub(
       calcCSGInterval(rayOrigin, rayDir, 0u),
       calcCSGInterval(rayOrigin, rayDir, 1u)
     );
+  CSGInterval mainBody = CSGOr(
+      topDome,
+      calcCSGInterval(rayOrigin, rayDir, 2u)
+    );
 
-  result = renderCSGInterval(rayOrigin, rayDir, result, interval);
+  // attach sections
+  CSGInterval fullBody = mainBody;
+  for (uint i = 0; i < 12; i++) {
+    fullBody = CSGOr(
+        fullBody,
+        calcCSGInterval(rayOrigin, rayDir, i + 3u)
+      );
+  }
+
+  result = renderCSGInterval(rayOrigin, rayDir, result, fullBody);
 
   return result;
 }
