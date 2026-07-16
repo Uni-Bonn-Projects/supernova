@@ -49,11 +49,13 @@ Oldman &Oldman::update(Program &program) {
 }
 
 Oldman &Oldman::move(float km, glm::vec3 dir) {
-  // TODO: impl
-  return *this;
-}
-Oldman &Oldman::scale(float scale, glm::vec3 amount) {
-  // TODO: impl
+  moveMesh(this->top_dome, km, dir);
+  moveMesh(this->bottom_body_cut, km, dir);
+  moveMesh(this->bottom_dome, km, dir);
+
+  for (auto &s : this->sections)
+    moveMesh(s, km, dir);
+
   return *this;
 }
 

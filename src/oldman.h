@@ -15,16 +15,17 @@ struct alignas(16) Oldman {
 
   GLuint ssbo_id;
 
-  /** Initialise the OLDMAN meshes using a unit shere and unit cube.
+  /** Initialise the OLDMAN meshes in the GPU using a unit shere and unit cube.
    *
    * unit shere refers to a shere with radius 1.
    * unit cube refers to a cube with lengths 2. (radius 1)
    */
   Oldman &init(SNMesh unit_sphere, SNMesh unit_cube, Program &program,
                uint32_t binding);
+  /** Update the OLDMAN meshes in the GPU */
   Oldman &update(Program &program);
+  /** Move all of the OLDMAN meshes km kilometers in the direction dir */
   Oldman &move(float km, glm::vec3 dir);
-  Oldman &scale(float scale, glm::vec3 amount);
 };
 
 }; // namespace sn
