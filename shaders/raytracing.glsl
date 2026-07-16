@@ -2,6 +2,7 @@
 #include "math.glsl"
 #include "procedural_raytracing.glsl"
 #include "uniforms.glsl"
+#include "mesh.glsl"
 #line 6
 
 vec3 intersectTriangle(
@@ -41,12 +42,20 @@ RaytraceResult raytraceOldman(
   vec3 rayDir,
   RaytraceResult result
 ) {
+  Mesh mesh = Mesh(
+      uVertices,
+      uNormals,
+      uIndices,
+      uVerticesCount,
+      uTriangleCount
+    );
+
   // Loop through each triangle uIndices[i].xyz
-  for (uint i = 0u; i < uTriangleCount; i++) {
+  for (uint i = 0u; i < mesh.indexCount; i++) {
     // Fetch vertex positions
-    vec3 v0 = uVertices[uIndices[i].x * 2u].xyz;
-    vec3 v1 = uVertices[uIndices[i].y * 2u].xyz;
-    vec3 v2 = uVertices[uIndices[i].z * 2u].xyz;
+    vec3 v0 = mesh.vertices[mesh.indices[i].x].xyz;
+    vec3 v1 = mesh.vertices[mesh.indices[i].y].xyz;
+    vec3 v2 = mesh.vertices[mesh.indices[i].z].xyz;
 
     vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
 
@@ -55,9 +64,9 @@ RaytraceResult raytraceOldman(
       vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
 
       // Fetch vertex normals
-      vec3 n0 = uVertices[uIndices[i].x * 2u + 1u].yzw;
-      vec3 n1 = uVertices[uIndices[i].y * 2u + 1u].yzw;
-      vec3 n2 = uVertices[uIndices[i].z * 2u + 1u].yzw;
+      vec3 n0 = mesh.normals[mesh.indices[i].x].xyz;
+      vec3 n1 = mesh.normals[mesh.indices[i].y].xyz;
+      vec3 n2 = mesh.normals[mesh.indices[i].z].xyz;
 
       result.hitPos = rayOrigin + curResult.z * rayDir;
       result.normal = normalize(mat3(n0, n1, n2) * barycentrics);

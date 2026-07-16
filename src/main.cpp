@@ -20,6 +20,7 @@
 
 #include "audio_engine.h"
 #include "explosions.h"
+#include "meshes.h"
 #include "multifile_shaders.h"
 
 #include "cinematic.cpp" // source file import?
@@ -79,30 +80,6 @@ struct MainApp : public App {
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
 
-  void loadObj(Program &program, const std::string &filename) {
-    std::vector<Mesh::VertexPTN> vertices;
-    std::vector<unsigned int> indices;
-    ObjParser::parse(filename, vertices, indices);
-
-    // Output mesh size
-    GLuint triangleCount = indices.size() / 3;
-
-    // Pass the vertices to the shader as vec4 array
-    // Each vertex is 2 vec4s arranged as:
-    // (vec4(Px, Py, Pz, Cx), vec4(Cy, Nx, Ny, Nz)) with P = Position, C =
-    // Texture Coordinate, N = Normal
-    glProgramUniform4fv(program.handle, program.uniform("uVertices"),
-                        vertices.size() * 2, value_ptr(vertices[0].position));
-
-    // Pass the indices to the shader as uvec3 array, each uvec3 being a
-    // triangle
-    glProgramUniform3uiv(program.handle, program.uniform("uIndices"),
-                         triangleCount, indices.data());
-
-    // Pass triangle count to the shader
-    program.set("uTriangleCount", triangleCount);
-  }
-
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
@@ -153,7 +130,8 @@ struct MainApp : public App {
     program.set("uLaserCoreColor", uLaserCoreColor);
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
-    loadObj(program, "meshes/lowpolysphere.obj");
+    sn::SNMesh mesh = sn::meshFromObj("meshes/lowpolysphere.obj");
+    initMesh(mesh, program);
     program.use();
 
     explosions.init();
