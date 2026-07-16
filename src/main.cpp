@@ -22,6 +22,7 @@
 #include "explosions.h"
 #include "meshes.h"
 #include "multifile_shaders.h"
+#include "oldman.h"
 
 #include "cinematic.cpp" // source file import?
 
@@ -38,6 +39,7 @@ struct MainApp : public App {
   CinematicDirector director;
   Explosions explosions;
   AudioEngine audio;
+  Oldman oldman;
 
   // timed explosion tied to the audio cue below, both keyed off uFlightTime
   const float kAttackExplosionTime = 10.0f;
@@ -137,6 +139,10 @@ struct MainApp : public App {
     program.use();
 
     explosions.init();
+
+    auto unit_sphere = meshFromObj("meshes/lowpolysphere.obj");
+    auto unit_cube = meshFromObj("meshes/cube.obj");
+    oldman.init(unit_sphere, unit_cube, program, 1);
   }
 
   ~MainApp() override { audio.shutdown(); }

@@ -12,6 +12,14 @@ struct SNMesh {
   uint ssbo_id;
 };
 
+struct Oldman {
+  SNMesh top_dome;
+  SNMesh bottom_body_cut;
+  SNMesh bottom_dome;
+  SNMesh sections[12];
+  uint ssbo_id;
+};
+
 struct RaytraceResult {
   vec3 hitPos;
   vec3 normal;

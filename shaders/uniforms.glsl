@@ -4,6 +4,9 @@
 layout(std430, binding = 0) readonly buffer MeshData {
   SNMesh umesh;
 };
+layout(std430, binding = 1) readonly buffer OldmanData {
+  Oldman oldman;
+};
 
 uniform vec3 uCameraPosition; // deps: raytrace
 uniform float uFar; // deps: raytraycing
