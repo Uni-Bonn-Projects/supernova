@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+namespace sn {
+
 typedef struct {
   std::vector<std::string> paths;
 
@@ -95,3 +97,5 @@ void load_shaders(Program &program, const std::string &root_path,
     program.loadSource(vertex_shader.value(), fragment_shader.value());
   }
 }
+
+}; // namespace sn

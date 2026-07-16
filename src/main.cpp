@@ -27,6 +27,8 @@
 
 using namespace glm;
 
+namespace sn {
+
 struct MainApp : public App {
   Program program;
   Mesh mesh;
@@ -377,12 +379,14 @@ struct MainApp : public App {
   }
 };
 
+}; // namespace sn
+
 int main() {
 #ifndef NDEBUG
   // cd to parent directory when in debug mode to find resources
   std::filesystem::current_path(
       std::filesystem::path(__FILE__).parent_path().parent_path());
 #endif
-  MainApp app;
+  sn::MainApp app;
   app.run();
 }

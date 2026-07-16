@@ -4,7 +4,7 @@
 #include "framework/gl/program.hpp"
 #include "framework/mesh.hpp"
 
-struct Particles;
+namespace sn {
 
 struct Particles {
   static const unsigned int AMOUNT = 100'000;
@@ -44,3 +44,5 @@ private:
   GLuint _offsetVBO;
   Particles _particles;
 };
+
+}; // namespace sn
