@@ -15,7 +15,7 @@ Oldman &Oldman::init(SNMesh unit_sphere, SNMesh unit_cube, Program &program,
   this->top_dome.scale(100, vec3(1));
 
   this->bottom_body_cut = unit_cube;
-  this->bottom_body_cut.scale(100, vec3(1, 1, 0.5)).move(50, vec3(0, 0, 1));
+  this->bottom_body_cut.scale(100, vec3(1, 0.5, 1)).move(50, vec3(0, -1, 0));
 
   this->bottom_dome = unit_sphere;
   this->bottom_dome.scale(25, vec3(1));
