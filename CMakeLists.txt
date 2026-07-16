@@ -6,7 +6,8 @@ project(
   VERSION 1.0
   LANGUAGES CXX)
 
-set(SRC src/main.cpp src/multifile_shaders.cpp src/explosions.cpp)
+set(SRC src/main.cpp src/multifile_shaders.cpp src/explosions.cpp
+        src/audio_engine.cpp src/audio/miniaudio.cpp)
 
 # install framework
 include(FetchContent)

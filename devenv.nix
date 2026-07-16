@@ -18,6 +18,10 @@ let
     pkg-config
     wayland
     wayland-scanner
+    # Used for audio
+    miniaudio 
+    libpulseaudio
+    alsa-lib
   ];
 in
 {
