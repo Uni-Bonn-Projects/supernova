@@ -144,29 +144,73 @@ CSGInterval CSGAnd(CSGInterval a, CSGInterval b) {
 
 /// every point which is in a or b
 CSGInterval CSGOr(CSGInterval a, CSGInterval b) {
-  CSGInterval result;
+  // no overlap -> return nearest
   if (a.near > b.far || b.near > a.far) {
-    // No overlap
+    if (a.near <= b.near) return a;
+    else return b;
+  }
+
+  CSGInterval result;
+
+  // near
+  if (a.near <= b.near) {
+    result.near = a.near;
+    result.normalNear = a.normalNear;
+  } else {
+    result.near = b.near;
+    result.normalNear = b.normalNear;
+  }
+
+  // far
+  if (a.far >= b.far) {
+    result.far = a.far;
+    result.normalFar = a.normalFar;
+  } else {
+    result.far = b.far;
+    result.normalFar = b.normalFar;
+  }
+  return result;
+}
+
+/// every point which is in a but not in b
+CSGInterval CSGSub(CSGInterval a, CSGInterval b) {
+  if (a.near > b.far || b.near > a.far) {
+    // No overlap -> nothing happens to a
+    return a;
+  }
+
+  CSGInterval result;
+
+  // B completely contains A: A is entirely subtracted
+  if (b.near <= a.near && b.far >= a.far) {
     result.near = Inf;
     result.far = -Inf;
-  } else {
-    // overlap
-
-    if (a.near <= b.near) {
-      result.near = a.near;
-      result.normalNear = a.normalNear;
-    } else {
-      result.near = b.near;
-      result.normalNear = b.normalNear;
-    }
-
-    if (a.far >= b.far) {
-      result.far = a.far;
-      result.normalFar = a.normalFar;
-    } else {
-      result.far = b.far;
-      result.normalFar = b.normalFar;
-    }
+    return result;
   }
+
+  // b's normals are inverted because we come from the other side as intended for b
+  if (b.near <= a.near) {
+    result.near = b.far;
+    result.normalNear = -b.normalFar;
+
+    result.far = a.far;
+    result.normalFar = a.normalFar;
+  } else if (b.far >= a.far) {
+    result.near = a.near;
+    result.normalNear = a.normalNear;
+
+    result.far = b.near;
+    result.normalFar = -b.normalNear;
+  } else {
+    // b splits a into two parts
+    // return the near part
+
+    result.near = a.near;
+    result.normalNear = a.normalNear;
+
+    result.far = b.near;
+    result.normalFar = -b.normalNear;
+  }
+
   return result;
 }
