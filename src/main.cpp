@@ -84,6 +84,8 @@ struct MainApp : public App {
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
 
+  sn::SNMesh snmesh;
+
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
@@ -134,14 +136,14 @@ struct MainApp : public App {
     program.set("uLaserCoreColor", uLaserCoreColor);
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
-    sn::SNMesh mesh = sn::meshFromObj("meshes/lowpolysphere.obj");
-    initMesh(mesh, program, 0);
+    snmesh.fromObj("meshes/lowpolysphere.obj").init(program, 0);
     program.use();
 
     explosions.init();
 
-    auto unit_sphere = meshFromObj("meshes/lowpolysphere.obj");
-    auto unit_cube = meshFromObj("meshes/cube.obj");
+    SNMesh unit_sphere, unit_cube;
+    unit_sphere.fromObj("meshes/lowpolysphere.obj");
+    unit_cube.fromObj("meshes/cube.obj");
     oldman.init(unit_sphere, unit_cube, program, 1);
   }
 

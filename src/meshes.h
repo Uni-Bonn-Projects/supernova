@@ -22,25 +22,26 @@ struct alignas(16) SNMesh {
   uint32_t triangleCount;
 
   GLuint ssbo_id;
+
+  /** Load .obj file into this struct */
+  SNMesh &fromObj(const std::string &filename);
+
+  /** Move the given Mesh km kilometers in direction dir */
+  SNMesh &move(float km, glm::vec3 dir);
+  /** Scale a mesh by the given scale.
+   * The vec3 amount defines how much to scale in which axis. (in percent)
+   */
+  SNMesh &scale(float scale, glm::vec3 amount);
+
+  /** Initialise the mesh's data in the GPU.
+   * Binding must match to one from the shader.
+   */
+  SNMesh &init(Program &program, uint32_t binding);
+
+  /** Update the mesh's data in the GPU
+   * Binding must match to one from the shader.
+   */
+  SNMesh &update(Program &program);
 };
-
-SNMesh meshFromObj(const std::string &filename);
-
-/** Move the given Mesh km kilometers in direction dir */
-SNMesh &moveMesh(SNMesh &self, float km, glm::vec3 dir);
-/** Scale a mesh by the given scale.
- * The vec3 amount defines how much to scale in which axis. (in percent)
- */
-SNMesh &scaleMesh(SNMesh &self, float scale, glm::vec3 amount);
-
-/** Initialise the mesh's data in the GPU.
- * Binding must match to one from the shader.
- */
-SNMesh &initMesh(SNMesh &self, Program &program, uint32_t binding);
-
-/** Update the mesh's data in the GPU
- * Binding must match to one from the shader.
- */
-SNMesh &updateMesh(SNMesh &self, Program &program);
 
 }; // namespace sn
