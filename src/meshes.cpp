@@ -1,9 +1,9 @@
-#include "glm/gtc/type_ptr.hpp"
 #include <cassert>
-#include <glm/glm.hpp>
+#include <cstdint>
 
 #include <framework/mesh.hpp>
 #include <framework/objparser.hpp>
+#include <glm/glm.hpp>
 
 #include <string>
 #include <vector>
@@ -57,14 +57,14 @@ SNMesh &scaleMesh(SNMesh &self, float scale, vec3 amount) {
   return self;
 }
 
-SNMesh &initMesh(SNMesh &self, Program &program) {
+SNMesh &initMesh(SNMesh &self, Program &program, uint32_t binding) {
   GLuint ssbo;
   glGenBuffers(1, &ssbo);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 
   glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SNMesh), &self, GL_STATIC_DRAW);
 
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ssbo);
 
   return self;
 }

@@ -131,7 +131,7 @@ struct MainApp : public App {
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
     sn::SNMesh mesh = sn::meshFromObj("meshes/lowpolysphere.obj");
-    initMesh(mesh, program);
+    initMesh(mesh, program, 0);
     program.use();
 
     explosions.init();

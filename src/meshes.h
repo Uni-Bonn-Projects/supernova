@@ -1,5 +1,6 @@
-#include "framework/gl/program.hpp"
 #include <cstdint>
+
+#include <framework/gl/program.hpp>
 #include <glm/glm.hpp>
 
 #include <string>
@@ -28,10 +29,14 @@ SNMesh &moveMesh(SNMesh &self, float km, glm::vec3 dir);
  */
 SNMesh &scaleMesh(SNMesh &self, float scale, glm::vec3 amount);
 
-/** Initialise the mesh's data in the GPU */
-SNMesh &initMesh(SNMesh &self, Program &program);
+/** Initialise the mesh's data in the GPU.
+ * Binding must match to one from the shader.
+ */
+SNMesh &initMesh(SNMesh &self, Program &program, uint32_t binding);
 
-/** Update the mesh's data in the GPU */
-SNMesh &updateMesh(SNMesh &self, Program &program);
+/** Update the mesh's data in the GPU
+ * Binding must match to one from the shader.
+ */
+SNMesh &updateMesh(SNMesh &self, Program &program, uint32_t binding);
 
 }; // namespace sn
