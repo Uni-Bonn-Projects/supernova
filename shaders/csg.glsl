@@ -1,5 +1,6 @@
 #include "common.glsl"
 #include "math.glsl"
+#include "uniforms.glsl"
 #line 5
 
 struct CSGInterval {
@@ -9,10 +10,55 @@ struct CSGInterval {
   vec3 normalFar;
 };
 
+/// Get data directly from ssbo
+void getTriangleData(uint meshIndex, uint triIndex, out vec3 v0, out vec3 v1, out vec3 v2, out vec3 n0, out vec3 n1, out vec3 n2) {
+  if (meshIndex == 0u) { // top_dome
+    uvec4 tri = oldman.top_dome.indices[triIndex];
+    v0 = oldman.top_dome.vertices[tri.x].xyz;
+    v1 = oldman.top_dome.vertices[tri.y].xyz;
+    v2 = oldman.top_dome.vertices[tri.z].xyz;
+    n0 = oldman.top_dome.normals[tri.x].xyz;
+    n1 = oldman.top_dome.normals[tri.y].xyz;
+    n2 = oldman.top_dome.normals[tri.z].xyz;
+  } else if (meshIndex == 1u) { // bottom_body_cut
+    uvec4 tri = oldman.bottom_body_cut.indices[triIndex];
+    v0 = oldman.bottom_body_cut.vertices[tri.x].xyz;
+    v1 = oldman.bottom_body_cut.vertices[tri.y].xyz;
+    v2 = oldman.bottom_body_cut.vertices[tri.z].xyz;
+    n0 = oldman.bottom_body_cut.normals[tri.x].xyz;
+    n1 = oldman.bottom_body_cut.normals[tri.y].xyz;
+    n2 = oldman.bottom_body_cut.normals[tri.z].xyz;
+  } else if (meshIndex == 2u) { // bottom_dome
+    uvec4 tri = oldman.bottom_dome.indices[triIndex];
+    v0 = oldman.bottom_dome.vertices[tri.x].xyz;
+    v1 = oldman.bottom_dome.vertices[tri.y].xyz;
+    v2 = oldman.bottom_dome.vertices[tri.z].xyz;
+    n0 = oldman.bottom_dome.normals[tri.x].xyz;
+    n1 = oldman.bottom_dome.normals[tri.y].xyz;
+    n2 = oldman.bottom_dome.normals[tri.z].xyz;
+  } else { // sections
+    SNMesh section = oldman.sections[14 - meshIndex];
+    uvec4 tri = section.indices[triIndex];
+    v0 = section.vertices[tri.x].xyz;
+    v1 = section.vertices[tri.y].xyz;
+    v2 = section.vertices[tri.z].xyz;
+    n0 = section.normals[tri.x].xyz;
+    n1 = section.normals[tri.y].xyz;
+    n2 = section.normals[tri.z].xyz;
+  }
+}
+
+uint getTriangleCount(uint meshIndex) {
+  if (meshIndex == 0u) return oldman.top_dome.triangleCount;
+  else if (meshIndex == 1u) return oldman.bottom_body_cut.triangleCount;
+  else if (meshIndex == 2u) return oldman.bottom_dome.triangleCount;
+  else return oldman.sections[14 - meshIndex].triangleCount;
+}
+
 CSGInterval calcCSGInterval(
   vec3 rayOrigin,
   vec3 rayDir,
-  SNMesh mesh
+  uint meshIndex
 ) {
   CSGInterval result = CSGInterval(
       Inf,
@@ -22,11 +68,10 @@ CSGInterval calcCSGInterval(
     );
 
   // for each triangle in current mesh
-  for (uint i = 0u; i < mesh.triangleCount; i++) {
-    // Fetch vertex positions
-    vec3 v0 = mesh.vertices[mesh.indices[i].x].xyz;
-    vec3 v1 = mesh.vertices[mesh.indices[i].y].xyz;
-    vec3 v2 = mesh.vertices[mesh.indices[i].z].xyz;
+  uint triangleCount = getTriangleCount(meshIndex);
+  for (uint i = 0u; i < triangleCount; i++) {
+    vec3 v0, v1, v2, n0, n1, n2;
+    getTriangleData(meshIndex, i, v0, v1, v2, n0, n1, n2);
 
     vec3 curResult = intersectTriangle(rayOrigin, rayDir, v0, v1, v2);
 
@@ -34,12 +79,6 @@ CSGInterval calcCSGInterval(
     bool isFurther = curResult.z > result.far;
     if (isNearer || isFurther) {
       vec3 barycentrics = vec3(1.0 - curResult.x - curResult.y, curResult.xy);
-
-      // Fetch vertex normals
-      vec3 n0 = mesh.normals[mesh.indices[i].x].xyz;
-      vec3 n1 = mesh.normals[mesh.indices[i].y].xyz;
-      vec3 n2 = mesh.normals[mesh.indices[i].z].xyz;
-
       vec3 normal = normalize(mat3(n0, n1, n2) * barycentrics);
 
       if (isNearer) {
