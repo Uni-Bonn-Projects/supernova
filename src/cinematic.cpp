@@ -145,6 +145,18 @@ public:
     // add keyframe
     timelineKeyframes.push_back({currentTimelineEnd, newPos, newTarget});
   }
+
+  // Holds the camera fixed at pos/target for `seconds`. Unlike
+  // moveCameraTo, duration is given directly instead of derived from
+  // distance/speed - for a static shot that still needs a nonzero slot on
+  // the shared timeline.
+  void holdAt(const vec3 &pos, const vec3 &target, float seconds) {
+    if (timelineKeyframes.empty()) {
+      timelineKeyframes.push_back({0.0f, pos, target});
+    }
+    currentTimelineEnd += seconds;
+    timelineKeyframes.push_back({currentTimelineEnd, pos, target});
+  }
 };
 
 // A time-windowed trigger, e.g. "object X is spawned between t=6s and t=25s".
