@@ -116,6 +116,37 @@ struct MainApp : public App {
                                           program.set("uInLinearSpace",
                                                       uInLinearSpace);
                                         }});
+
+    Scene Laser;
+    Laser.name = "Laser";
+    vec3 LaserCamPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+    vec3 SunPos = vec3(800.0f, 0.0f, 0.0f);
+    Laser.director.moveCameraTo(LaserCamPos + vec3(8.0f, 60.0f, 0.0f), fightPos,
+                                100.0);
+    Laser.director.moveCameraTo(LaserCamPos + vec3(8.0f, 60.0f, 60.0f), SunPos,
+                                40.0);
+
+    Laser.windowEvents.push_back(
+        {0.0f, 1.0f,
+         [this]() {
+           uInLinearSpace = true;
+           program.set("uInLinearSpace", uInLinearSpace);
+         },
+         [this]() {
+           uInLinearSpace = false;
+           program.set("uInLinearSpace", uInLinearSpace);
+         }});
+
+    Laser.windowEvents.push_back({5.0f, 12.0f,
+                                  [this]() {
+                                    uLaserActive = true;
+                                    program.set("uLaserActive", uLaserActive);
+                                  },
+                                  [this]() {
+                                    uLaserActive = false;
+                                    program.set("uLaserActive", uLaserActive);
+                                  }});
+
     // Build the one cinematic shot we currently have ("Kampf"): a camera
     // path plus every spawn/despawn/laser/explosion trigger timed against
     // the same uFlightTime clock. All the numbers below are unchanged from
@@ -165,8 +196,31 @@ struct MainApp : public App {
     kampf.oneShotEvents.push_back({kAttackExplosionTime, [this, attackerPos]() {
                                      explosions.spawn(attackerPos, 10.0);
                                    }});
+
+    // ToDO attacker angriffe in scene Kampf
+
+    // Scene POV;
+    // POV.name = "POV";
+    // vec3 POVCamPos = vec3(800.0f, 0.0f, 0.0f); ToDO: richtige position finden
+    // linearSpace.director.holdAt(POVCamPos, fightPos, 4.0f);
+    // ToDO: laser von beiden
+
+    // Scene old_man_attacks;
+    // old_man-attacks.name = "Old Man attacks"
+    // ToDO: old man shoots attacker
+    // ToDo: old man flies away
+
+    // Scene Supernova;
+    // Supernova.name = "supernova";
+    // ToDo: supernova
+
     scenes.push_back(linearSpace);
+    scenes.push_back(Laser);
     scenes.push_back(kampf);
+    // scenes.push_back(POV);
+    // scenes.push_back(old_man_attacks);
+    scenes.push_back(linearSpace);
+    // scenes.push_back(supernova);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
     // effects are triggered off the same global uFlightTime clock that
