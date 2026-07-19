@@ -53,6 +53,26 @@ struct MainApp : public App {
       t += scenes[i].duration();
     return t;
   }
+
+  void resetTimeline() {
+    uFlightTime = 0.0f;
+    currentScene = 0;
+    for (auto &scene : scenes)
+      scene.reset();
+    audio.resetSchedule();
+
+    // Scenes only unwind runtime state (spawns, uInLinearSpace,
+    // uLaserActive, ...) via SceneWindowEvent::onInactive, but several
+    // window events (e.g. linearSpace's) only define onActive - so
+    // whatever was on when playback stopped stays on. Force everything
+    // back to its resting state here instead of relying on every event to
+    // pair its own onInactive.
+    assetManager.despawnAll();
+    uInLinearSpace = false;
+    program.set("uInLinearSpace", uInLinearSpace);
+    uLaserActive = false;
+    program.set("uLaserActive", uLaserActive);
+  }
   Explosions explosions;
   AudioEngine audio;
   Oldman oldman;
@@ -76,15 +96,18 @@ struct MainApp : public App {
   float uApertureSize = 0.0f;
   int uFocusSamples = 1;
 
-  static constexpr vec3 kOldmanMuzzle = vec3(0.0f, 1.0f, 0.0f);
+  // Offset from fightPos to the top of the oldman mesh (top_dome is a
+  // radius-100 sphere centered on the mesh's own origin, see oldman.cpp),
+  // i.e. roughly the muzzle the laser fires from.
+  static constexpr vec3 kOldmanMuzzleOffset = vec3(0.0f, 100.0f, 0.0f);
   static constexpr float kLaserLength = 50000.0f; // km, well past the moon
   bool uLaserActive = false; // not visible before its triggered
-  vec3 uLaserStart = kOldmanMuzzle;
-  vec3 uLaserEnd = kOldmanMuzzle;
-  float uLaserRadius = 0.5f;
+  vec3 uLaserStart = fightPos + kOldmanMuzzleOffset;
+  vec3 uLaserEnd = uLaserStart;
+  float uLaserRadius = 1.25f;
   vec3 uLaserColor = vec3(0.1f, 0.4f, 1.0f); // blue halo
   vec3 uLaserCoreColor = vec3(0.8f, 0.9f, 1.0f);
-  float uLaserGlowRadius = 3.0f;
+  float uLaserGlowRadius = 7.5f;
   float uLaserGlowIntensity = 1.0f;
   // Cinematic firing window (seconds into uFlightTime); kept separate from
   // uLaserActive so ImGui can still force it on/off manually while uAutoCam
@@ -147,11 +170,6 @@ struct MainApp : public App {
                                     program.set("uLaserActive", uLaserActive);
                                   }});
 
-    // Build the one cinematic shot we currently have ("Kampf"): a camera
-    // path plus every spawn/despawn/laser/explosion trigger timed against
-    // the same uFlightTime clock. All the numbers below are unchanged from
-    // the previous hardcoded version - this only moves them into Scene data
-    // so render() can drive them generically via Scene::update().
     Scene kampf;
     kampf.name = "Kampf";
 
@@ -318,10 +336,11 @@ struct MainApp : public App {
           scene.director.timelineKeyframes, localTime, true);
       camera.invalidate();
 
-      // end: stop once every chained scene has played
+      // end: stop once every chained scene has played, and rewind so the
+      // next "Automatic Camera" run starts clean from scene 0 again
       if (uFlightTime > sceneStartTime((int)scenes.size())) {
         uAutoCam = false;
-        uFlightTime = 0.0f;
+        resetTimeline();
       }
     }
 
@@ -426,11 +445,7 @@ struct MainApp : public App {
       program.set("uInLinearSpace", uInLinearSpace);
 
     if (ImGui::Checkbox("Automatic Camera", &uAutoCam)) {
-      uFlightTime = 0.0f;
-      currentScene = 0;
-      for (auto &scene : scenes)
-        scene.reset(); // clears one-shot "fired" flags on every scene
-      audio.resetSchedule();
+      resetTimeline();
     }
     ImGui::Text("Shot: %s (t=%.1fs)", scenes[currentScene].name.c_str(),
                 uFlightTime - sceneStartTime(currentScene));

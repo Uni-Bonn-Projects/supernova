@@ -49,6 +49,12 @@ public:
     }
   }
 
+  void despawnAll() {
+    for (auto &[name, object] : registry) {
+      object.isActive = false;
+    }
+  }
+
   const Object &getObject(const std::string &name) { return registry[name]; }
 
   void updateShaderUniforms(Program &program) {
