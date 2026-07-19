@@ -36,11 +36,23 @@ struct MainApp : public App {
   Camera camera;
   AssetManager assetManager;
 
-  // All cinematic shots; `currentScene` indexes into this. Today there's
-  // only one ("Kampf"), built in the constructor below - add more Scene
-  // entries here to script additional shots without touching render().
+  // All cinematic shots, chained back-to-back on one global clock
+  // (uFlightTime): scene N starts the instant scene N-1's duration()
+  // elapses, with no per-scene reset. `currentScene` tracks whichever
+  // scene that global time currently falls inside - see render() and
+  // sceneStartTime() below. Add more Scene entries in the constructor to
+  // script additional shots; push order is playback order.
   std::vector<Scene> scenes;
   int currentScene = 0;
+
+  // Sum of scenes[0..idx)'s durations - i.e. the global flight time at
+  // which scenes[idx] starts playing.
+  float sceneStartTime(int idx) const {
+    float t = 0.0f;
+    for (int i = 0; i < idx; i++)
+      t += scenes[i].duration();
+    return t;
+  }
   Explosions explosions;
   AudioEngine audio;
   Oldman oldman;
@@ -145,12 +157,16 @@ struct MainApp : public App {
     scenes.push_back(kampf);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
-    // effects are triggered off the same uFlightTime clock that drives the
-    // camera/spawn timeline (see the scheduleSFX call and the matching
-    // kAttackExplosionTime check in render()).
+    // effects are triggered off the same global uFlightTime clock that
+    // drives the camera/spawn timeline. kAttackExplosionTime is local to
+    // "Kampf" (matches its oneShotEvent above), so it's offset by
+    // sceneStartTime() here to land on the same global instant even if
+    // other scenes end up chained in front of Kampf later.
     audio.init();
     audio.playMusic("src/audio/Geist.wav", 0.5f);
-    audio.scheduleSFX(kAttackExplosionTime, "src/audio/explosion.wav");
+    audio.scheduleSFX(sceneStartTime((int)scenes.size() - 1) +
+                          kAttackExplosionTime,
+                      "src/audio/explosion.wav");
 
     // Init uniforms
     program.set("uLightColor", vec3(1.0));
@@ -194,20 +210,43 @@ struct MainApp : public App {
 
     // autocam
     if (uAutoCam == true) {
-      uFlightTime += App::delta;
+      uFlightTime += App::delta; // global clock, shared across all scenes
+
+      // find which scene the global clock currently falls inside, and how
+      // far into that scene we are (its own events/keyframes are all
+      // defined in scene-local time, starting at 0)
+      float elapsed = 0.0f;
+      int activeScene = (int)scenes.size() - 1;
+      for (size_t i = 0; i < scenes.size(); i++) {
+        if (uFlightTime < elapsed + scenes[i].duration()) {
+          activeScene = (int)i;
+          break;
+        }
+        elapsed += scenes[i].duration();
+      }
+
+      if (activeScene != currentScene) {
+        // force the outgoing scene through its own end-of-window once, so
+        // its onInactive callbacks (despawns etc.) fire before we stop
+        // driving it and move on
+        scenes[currentScene].update(scenes[currentScene].duration());
+        currentScene = activeScene;
+      }
+
+      float localTime = uFlightTime - elapsed;
       Scene &scene = scenes[currentScene];
       // drives every spawn/despawn/laser/explosion trigger for this scene
-      scene.update(uFlightTime);
+      scene.update(localTime);
       audio.update(uFlightTime);
       // gets the smooth camera curve
       camera.worldPosition = CinematicSpline::getInterpolatedPosition(
-          scene.director.timelineKeyframes, uFlightTime, false);
+          scene.director.timelineKeyframes, localTime, false);
       camera.target = CinematicSpline::getInterpolatedPosition(
-          scene.director.timelineKeyframes, uFlightTime, true);
+          scene.director.timelineKeyframes, localTime, true);
       camera.invalidate();
 
-      // end
-      if (uFlightTime > scene.duration()) {
+      // end: stop once every chained scene has played
+      if (uFlightTime > sceneStartTime((int)scenes.size())) {
         uAutoCam = false;
         uFlightTime = 0.0f;
       }
@@ -315,13 +354,13 @@ struct MainApp : public App {
 
     if (ImGui::Checkbox("Automatic Camera", &uAutoCam)) {
       uFlightTime = 0.0f;
-      scenes[currentScene].reset(); // clears one-shot "fired" flags
+      currentScene = 0;
+      for (auto &scene : scenes)
+        scene.reset(); // clears one-shot "fired" flags on every scene
       audio.resetSchedule();
     }
-    ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
-                            : uFlightTime < 12.0f ? "2 - Attacker"
-                            : uFlightTime < 25.0f ? "3 - Kampf"
-                                                  : "---");
+    ImGui::Text("Shot: %s (t=%.1fs)", scenes[currentScene].name.c_str(),
+                uFlightTime - sceneStartTime(currentScene));
 
     if (ImGui::SliderFloat("CRT Warp", &uWarp, 0.0f, 4.0f))
       program.set("uWarp", uWarp);
