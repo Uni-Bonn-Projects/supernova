@@ -104,6 +104,18 @@ struct MainApp : public App {
     assetManager.registerObject("oldman");
     assetManager.registerObject("attacker");
 
+    Scene linearSpace;
+    linearSpace.name = "LinearSpace";
+    vec3 linSpaceCamPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+    linearSpace.director.holdAt(linSpaceCamPos, fightPos, 2.0f);
+    linearSpace.windowEvents.push_back(
+        {0.0f, 2.0f,
+         [this]() { assetManager.spawn("oldman", fightPos, 1.0f); }});
+    linearSpace.windowEvents.push_back({0.0f, 2.0f, [this]() {
+                                          uInLinearSpace = true;
+                                          program.set("uLinearSpace",
+                                                      uInLinearSpace);
+                                        }});
     // Build the one cinematic shot we currently have ("Kampf"): a camera
     // path plus every spawn/despawn/laser/explosion trigger timed against
     // the same uFlightTime clock. All the numbers below are unchanged from
@@ -153,7 +165,7 @@ struct MainApp : public App {
     kampf.oneShotEvents.push_back({kAttackExplosionTime, [this, attackerPos]() {
                                      explosions.spawn(attackerPos, 10.0);
                                    }});
-
+    scenes.push_back(linearSpace);
     scenes.push_back(kampf);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
