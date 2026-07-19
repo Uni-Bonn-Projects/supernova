@@ -98,7 +98,7 @@ struct MainApp : public App {
   MainApp() : App(800, 600) {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
-    camera.worldPosition = vec3(5.0f, 3.0f, 5.0f);
+    camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
 
     // register objects
     assetManager.registerObject("oldman");
@@ -107,13 +107,13 @@ struct MainApp : public App {
     Scene linearSpace;
     linearSpace.name = "LinearSpace";
     vec3 linSpaceCamPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
-    linearSpace.director.holdAt(linSpaceCamPos, fightPos, 2.0f);
+    linearSpace.director.holdAt(linSpaceCamPos, fightPos, 6.0f);
     linearSpace.windowEvents.push_back(
         {0.0f, 2.0f,
          [this]() { assetManager.spawn("oldman", fightPos, 1.0f); }});
     linearSpace.windowEvents.push_back({0.0f, 2.0f, [this]() {
                                           uInLinearSpace = true;
-                                          program.set("uLinearSpace",
+                                          program.set("uInLinearSpace",
                                                       uInLinearSpace);
                                         }});
     // Build the one cinematic shot we currently have ("Kampf"): a camera
@@ -211,6 +211,13 @@ struct MainApp : public App {
     unit_sphere.fromObj("meshes/lowpolysphere.obj");
     unit_cube.fromObj("meshes/cube.obj");
     oldman.init(unit_sphere, unit_cube, program, 0);
+    // The CSG mesh is built centered at the world origin (see oldman.cpp)
+    // but every Scene positions the "oldman" AssetManager object at
+    // fightPos and points its cameras/laser there, so the actual mesh
+    // geometry must be translated to match or it's nowhere near what's
+    // being filmed.
+    oldman.move(1.0f, fightPos);
+    oldman.update(program);
   }
 
   ~MainApp() override { audio.shutdown(); }

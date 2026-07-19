@@ -197,14 +197,17 @@ struct Scene {
   void update(float flightTime) {
     for (auto &event : windowEvents) {
       if (flightTime >= event.startTime && flightTime < event.endTime) {
-        event.onActive();
+        if (event.onActive)
+          event.onActive();
       } else {
-        event.onInactive();
+        if (event.onInactive)
+          event.onInactive();
       }
     }
     for (auto &event : oneShotEvents) {
       if (!event.fired && flightTime >= event.triggerTime) {
-        event.onTrigger();
+        if (event.onTrigger)
+          event.onTrigger();
         event.fired = true;
       }
     }
