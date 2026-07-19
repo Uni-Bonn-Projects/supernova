@@ -42,10 +42,7 @@ RaytraceResult raytraceOldman(
 /// cast a shadow.
 bool inShadow(vec3 pos, vec3 normal) {
   // Bias the origin along the surface normal to avoid immediately
-  // re-intersecting the surface we just hit (shadow acne). The scene spans
-  // scales from a few km (starship/attackers) to hundreds of thousands of km
-  // (earth/moon), so the bias is scaled relative to the hit point's distance
-  // from the world origin instead of a fixed constant.
+  // re-intersecting the surface we just hit.
   vec3 shadowOrigin = pos + normal * max(1e-3, length(pos) * 1e-6);
 
   RaytraceResult result = RaytraceResult(
@@ -80,9 +77,7 @@ vec3 calcLighting(RaytraceResult x) {
 }
 
 /// Takes a ray and background color and returns the color of the point hit.
-/// Also writes the distance to that hit (or uFar if nothing was hit) to
-/// hitDistance, so callers can occlude volumetric effects (e.g. the laser
-/// glow) behind solid geometry.
+/// Also writes the distance to that hit to hitDistance
 vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitDistance) {
   RaytraceResult result = RaytraceResult(
       vec3(Inf), // anything can be here
@@ -104,12 +99,7 @@ vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitD
   return calcLighting(result);
 }
 
-/// Purely volumetric laser halo - there is no solid hit for the laser, this
-/// is the only place it gets drawn. Returns (color, alpha): alpha is 1.0 on
-/// the beam axis and falls off exponentially with distance, so the caller
-/// does a plain alpha blend (mix) instead of adding light. Marching is
-/// windowed around the closest point on the ray to the beam axis so we don't
-/// waste steps sampling empty space far from the laser.
+/// Purely volumetric laser halo, there is no solid laser
 vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
   if (!uLaserActive) return vec4(0.0);
 

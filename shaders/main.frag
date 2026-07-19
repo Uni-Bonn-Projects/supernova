@@ -32,9 +32,7 @@ vec3 renderAt(vec2 ndc, vec2 offset, vec3 rayDir, vec3 x, vec3 y) {
   float hitDistance;
   color = raytrace(shiftedEye, shiftedRayDir, color, hitDistance);
 
-  // Volumetric halo of the laser, alpha-blended over the scene (glows
-  // against sky and geometry, occluded by whatever the primary ray hit
-  // first)
+  // Volumetric halo of the laser, alpha-blended over the scene
   vec4 glow = laserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
   color = mix(color, glow.rgb, glow.a);
 

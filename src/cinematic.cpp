@@ -12,6 +12,7 @@ using namespace glm;
 #include <framework/imguiutil.hpp>
 #include <framework/mesh.hpp>
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -143,5 +144,64 @@ public:
     currentTimelineEnd += duration;
     // add keyframe
     timelineKeyframes.push_back({currentTimelineEnd, newPos, newTarget});
+  }
+};
+
+// A time-windowed trigger, e.g. "object X is spawned between t=6s and t=25s".
+// onActive/onInactive are called EVERY frame (not just on the transition),
+// mirroring the old spawn()/despawn() pattern where both were idempotent -
+// this way scrubbing/restarting the timeline can never leave stale state.
+struct SceneWindowEvent {
+  float startTime;
+  float endTime;
+  std::function<void()> onActive;
+  std::function<void()> onInactive;
+};
+
+// A one-time trigger, e.g. "play the explosion the first frame we cross
+// t=10s". `fired` guards against re-triggering every frame after that; call
+// Scene::reset() to clear it when replaying the scene from the start.
+struct SceneOneShotEvent {
+  float triggerTime;
+  std::function<void()> onTrigger;
+  bool fired = false;
+};
+
+// One cinematic "shot": a camera path (via `director`) plus all the
+// spawn/despawn/laser/explosion triggers timed against that same clock.
+// Bundling them together means a new shot is just a new Scene instance
+// instead of more branches inside MainApp::render().
+struct Scene {
+  std::string name;
+  CinematicDirector director;
+  std::vector<SceneWindowEvent> windowEvents;
+  std::vector<SceneOneShotEvent> oneShotEvents;
+
+  // Total length of the camera path; the scene is "done" once flight time
+  // passes this.
+  float duration() const { return director.currentTimelineEnd; }
+
+  // Call once per frame with the current flight time to drive all triggers.
+  void update(float flightTime) {
+    for (auto &event : windowEvents) {
+      if (flightTime >= event.startTime && flightTime < event.endTime) {
+        event.onActive();
+      } else {
+        event.onInactive();
+      }
+    }
+    for (auto &event : oneShotEvents) {
+      if (!event.fired && flightTime >= event.triggerTime) {
+        event.onTrigger();
+        event.fired = true;
+      }
+    }
+  }
+
+  // Clears one-shot "fired" flags so the scene can be played again from t=0.
+  void reset() {
+    for (auto &event : oneShotEvents) {
+      event.fired = false;
+    }
   }
 };

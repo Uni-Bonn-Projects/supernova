@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <imgui.h>
 
@@ -35,15 +36,17 @@ struct MainApp : public App {
   Camera camera;
   AssetManager assetManager;
 
-  CinematicDirector director;
+  // All cinematic shots; `currentScene` indexes into this. Today there's
+  // only one ("Kampf"), built in the constructor below - add more Scene
+  // entries here to script additional shots without touching render().
+  std::vector<Scene> scenes;
+  int currentScene = 0;
   Explosions explosions;
   AudioEngine audio;
   Oldman oldman;
 
   // timed explosion tied to the audio cue below, both keyed off uFlightTime
   const float kAttackExplosionTime = 10.0f;
-  vec3 attackExplosionPos = vec3(0.0f);
-  bool attackExplosionFired = false;
 
   vec3 uLightDir = normalize(vec3(1.0));
   float uNear = 1.0;
@@ -61,12 +64,9 @@ struct MainApp : public App {
   float uApertureSize = 0.0f;
   int uFocusSamples = 1;
 
-  // Big blue laser: fired by "oldman" towards the sun (uLightDir). The oldman
-  // mesh is currently rendered static at the OBJ's raw vertex positions (see
-  // CLAUDE.md), i.e. at the world origin, so that's where the beam starts.
   static constexpr vec3 kOldmanMuzzle = vec3(0.0f, 1.0f, 0.0f);
   static constexpr float kLaserLength = 50000.0f; // km, well past the moon
-  bool uLaserActive = false; // must not be visible before it's triggered
+  bool uLaserActive = false; // not visible before its triggered
   vec3 uLaserStart = kOldmanMuzzle;
   vec3 uLaserEnd = kOldmanMuzzle;
   float uLaserRadius = 0.5f;
@@ -92,15 +92,57 @@ struct MainApp : public App {
     assetManager.registerObject("oldman");
     assetManager.registerObject("attacker");
 
-    // camera movement
-    director.moveCameraTo(fightPos + vec3(700.0f, 300.0f, 0.0f), fightPos,
-                          114.0f);
+    // Build the one cinematic shot we currently have ("Kampf"): a camera
+    // path plus every spawn/despawn/laser/explosion trigger timed against
+    // the same uFlightTime clock. All the numbers below are unchanged from
+    // the previous hardcoded version - this only moves them into Scene data
+    // so render() can drive them generically via Scene::update().
+    Scene kampf;
+    kampf.name = "Kampf";
+
+    // Camera path: oldman intro -> swing past the attacker swarm -> pull
+    // back for the final fight shot.
+    kampf.director.moveCameraTo(fightPos + vec3(700.0f, 300.0f, 0.0f), fightPos,
+                                114.0f);
     vec3 attackerPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
-    director.moveCameraTo(attackerPos + vec3(100.0f, 50.0f, -100.0f),
-                          attackerPos, 56.0f);
-    director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
-                          201.0f);
-    attackExplosionPos = attackerPos;
+    kampf.director.moveCameraTo(attackerPos + vec3(100.0f, 50.0f, -100.0f),
+                                attackerPos, 56.0f);
+    kampf.director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f),
+                                fightPos, 201.0f);
+
+    // oldman is visible for the whole shot (0s-25s)
+    kampf.windowEvents.push_back(
+        {0.0f, 25.0f,
+         [this]() { assetManager.spawn("oldman", fightPos, 1.0f); },
+         [this]() { assetManager.despawn("oldman"); }});
+
+    // attacker swarm shows up partway through (6s-25s)
+    kampf.windowEvents.push_back(
+        {6.0f, 25.0f,
+         [this, attackerPos]() {
+           assetManager.spawn("attacker", attackerPos, 2.5f);
+         },
+         [this]() { assetManager.despawn("attacker"); }});
+
+    // laser only visible during its own cinematic firing window; must be
+    // invisible the rest of the time
+    kampf.windowEvents.push_back({uLaserFireStart, uLaserFireEnd,
+                                  [this]() {
+                                    uLaserActive = true;
+                                    program.set("uLaserActive", uLaserActive);
+                                  },
+                                  [this]() {
+                                    uLaserActive = false;
+                                    program.set("uLaserActive", uLaserActive);
+                                  }});
+
+    // one-shot visual explosion, paired with the SFX scheduled below at the
+    // same kAttackExplosionTime
+    kampf.oneShotEvents.push_back({kAttackExplosionTime, [this, attackerPos]() {
+                                     explosions.spawn(attackerPos, 10.0);
+                                   }});
+
+    scenes.push_back(kampf);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
     // effects are triggered off the same uFlightTime clock that drives the
@@ -153,44 +195,19 @@ struct MainApp : public App {
     // autocam
     if (uAutoCam == true) {
       uFlightTime += App::delta;
-      // spawn and despawn
-      if (uFlightTime >= 0.0f && uFlightTime < 25.0f) {
-        assetManager.spawn("oldman", fightPos, 1.0f);
-      } else {
-        assetManager.despawn("oldman");
-      }
-
-      if (uFlightTime >= 6.0f && uFlightTime < 25.0f) {
-        assetManager.spawn("attacker", fightPos + vec3(800.0f, 0.0f, 0.0f),
-                           2.5f);
-      } else {
-        assetManager.despawn("attacker");
-      }
-
-      // fire the laser only inside its cinematic window; must be invisible
-      // the rest of the time
-      bool laserShouldFire =
-          uFlightTime >= uLaserFireStart && uFlightTime < uLaserFireEnd;
-      if (laserShouldFire != uLaserActive) {
-        uLaserActive = laserShouldFire;
-        program.set("uLaserActive", uLaserActive);
-      }
-      // timed explosion (visual), paired with the SFX scheduled in the
-      // constructor at the same kAttackExplosionTime
-      if (!attackExplosionFired && uFlightTime >= kAttackExplosionTime) {
-        explosions.spawn(attackExplosionPos, 10.0);
-        attackExplosionFired = true;
-      }
+      Scene &scene = scenes[currentScene];
+      // drives every spawn/despawn/laser/explosion trigger for this scene
+      scene.update(uFlightTime);
       audio.update(uFlightTime);
       // gets the smooth camera curve
       camera.worldPosition = CinematicSpline::getInterpolatedPosition(
-          director.timelineKeyframes, uFlightTime, false);
+          scene.director.timelineKeyframes, uFlightTime, false);
       camera.target = CinematicSpline::getInterpolatedPosition(
-          director.timelineKeyframes, uFlightTime, true);
+          scene.director.timelineKeyframes, uFlightTime, true);
       camera.invalidate();
 
       // end
-      if (uFlightTime > director.currentTimelineEnd) {
+      if (uFlightTime > scene.duration()) {
         uAutoCam = false;
         uFlightTime = 0.0f;
       }
@@ -298,7 +315,7 @@ struct MainApp : public App {
 
     if (ImGui::Checkbox("Automatic Camera", &uAutoCam)) {
       uFlightTime = 0.0f;
-      attackExplosionFired = false;
+      scenes[currentScene].reset(); // clears one-shot "fired" flags
       audio.resetSchedule();
     }
     ImGui::Text("Shot: %s", uFlightTime < 6.0f    ? "1 - Old Man"
