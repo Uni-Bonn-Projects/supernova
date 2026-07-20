@@ -103,7 +103,7 @@ alles um ein Faktor 1000 geschrumpft.
 Bevor Florian und Noah dann richtig angefangen haben am Projekt zu arbeiten,
 habe ich noch die Angreifer, einfache, algorithmisch erzeugte Kugeln, erstellt.
 
-## Exkurs: Multifile Shaders
+### Exkurs: Multifile Shaders
 
 Irgendwann wurde der Code dann im Fragment Shader immer mehr, wodurch man die
 Übersicht verlor. Daher habe ich versucht, den Shader in mehere Dateien via
@@ -118,7 +118,7 @@ eigenen kleinen Shader preprocessor geschrieben, der einfach nur die ganzen
 `#include`'s auflöst und das Resultat an den Shader Compiler vom Framework
 weitergibt.
 
-## Himmelskörper und Hintergründe
+### Himmelskörper und Hintergründe
 
 Nach diesem kleinem Exkurs habe ich noch die Erde und den Mond erstellt (wieder
 algorithmisch erzeugte Kugeln) und sowohl den Stern- als auch Linearraumhintergrund
@@ -135,7 +135,7 @@ Linearraumhintergrund. Hier leider nur ein statisches Bild davon:
 
 ![](./img/linear_space.png)
 
-## Partikelsystem
+### Partikelsystem
 
 Jetzt wo es nichts mehr gab, mit dem ich mich weiter drücken konnte, habe ich
 an das Partikelsystem setzen müssen. Wie ich befürchtet hatte, war dieses System
