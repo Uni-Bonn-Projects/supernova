@@ -44,6 +44,8 @@ struct MainApp : public App {
   // script additional shots; push order is playback order.
   std::vector<Scene> scenes;
   int currentScene = 0;
+  // Scene-local time of the frame currently being driven; see render().
+  float currentSceneTime = 0.0f;
 
   // Sum of scenes[0..idx)'s durations - i.e. the global flight time at
   // which scenes[idx] starts playing.
@@ -74,6 +76,27 @@ struct MainApp : public App {
     program.set("uLaserActive", uLaserActive);
     uAttackerLaserActive = false;
     program.set("uAttackerLaserActive", uAttackerLaserActive);
+
+    uAttackerAliveMask = kAliveMaskAll;
+    program.set("uAttackerAliveMask", uAttackerAliveMask);
+    uOldmanBeamActive = false;
+    program.set("uOldmanBeamActive", uOldmanBeamActive);
+    uOldmanBeamTargets = ivec3(-1);
+    program.set("uOldmanBeamTargets", uOldmanBeamTargets);
+    uAttackerLaserTarget = fightPos;
+    program.set("uAttackerLaserTarget", uAttackerLaserTarget);
+    uOldmanBeamStart = fightPos + kOldmanMuzzleOffset;
+    program.set("uOldmanBeamStart", uOldmanBeamStart);
+
+    // The chase translates the CSG mesh incrementally, so unlike everything
+    // else here it can't just be re-set to a value - it has to be moved back
+    // by however far it drifted, or a replay starts with oldman displaced.
+    if (oldmanWorldPos != fightPos) {
+      oldman.move(1.0f, fightPos - oldmanWorldPos);
+      oldman.update(program);
+      oldmanWorldPos = fightPos;
+    }
+    attackerSwarmPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
   }
   Explosions explosions;
   AudioEngine audio;
@@ -130,6 +153,137 @@ struct MainApp : public App {
   vec3 uAttackerLaserCoreColor = vec3(1.0f, 0.8f, 0.3f);
   float uAttackerLaserGlowRadius = 1.0f;
   float uAttackerLaserGlowIntensity = 1.0f;
+
+  // Number of attacker spheres; must match attackerAmount in pprocedural
+  // raytracing file
+  static constexpr int kAttackerAmount = 13;
+  static constexpr float kAttackerDistance = 400.0f;
+  static constexpr float kAttackerScale = 7.5f;
+  static constexpr int kAliveMaskAll = (1 << kAttackerAmount) - 1;
+
+  int uAttackerAliveMask = kAliveMaskAll;
+  vec3 uAttackerSwarmPivot = fightPos;
+
+  // oldman's green return fire (up to 3 beams, targets given as indices)
+  bool uOldmanBeamActive = false;
+  vec3 uOldmanBeamStart = fightPos + kOldmanMuzzleOffset;
+  ivec3 uOldmanBeamTargets = ivec3(-1);
+  float uOldmanBeamRadius = 1.5f;
+  vec3 uOldmanBeamColor = vec3(0.1f, 1.0f, 0.2f); // green halo
+  vec3 uOldmanBeamCoreColor = vec3(0.8f, 1.0f, 0.85f);
+  float uOldmanBeamGlowRadius = 1.0f;
+  float uOldmanBeamGlowIntensity = 1.0f;
+
+  vec3 oldmanWorldPos = fightPos;
+  vec3 attackerSwarmPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+
+  struct AttackRun {
+    int attackerIndex;
+    float beamStart;
+    float killTime;
+  };
+  std::vector<AttackRun> attackRuns;
+
+  static constexpr float kBeamDwell = 2.5f;   // time under fire before dying
+  static constexpr float kBeamReload = 1.5f;  // gap between a slot's kills
+  static constexpr float kSlotStagger = 0.8f; // offset between the 3 beams
+  static constexpr int kBeamSlots = 3;
+  static constexpr int kKillCount = 9; // 9 of 13 die, 4 flee
+  static constexpr int kKillRounds = kKillCount / kBeamSlots;
+  // The escape begins the instant the last attacker dies. Derived from the
+  // constants above rather than hardcoded, so retuning the pacing can't
+  // silently desync the flight phase from the final kill:
+  // 0.8*2 + 2.5 + 2*4.0 = 12.1s
+  static constexpr float kFlightStart =
+      kSlotStagger * float(kBeamSlots - 1) + kBeamDwell +
+      float(kKillRounds - 1) * (kBeamDwell + kBeamReload);
+  static constexpr float kChaseDuration = 8.0f;
+  static constexpr vec3 kEscapeVelocity = vec3(-155.0f, 40.0f, 155.0f);
+
+  vec3 attackerWorldPos(int i, vec3 origin) const {
+    // same PI literal as math.glsl, so CPU and GPU positions agree exactly
+    const float kPi = 3.1415926f;
+    float angle =
+        float(i - 6) * (360.0f / float(kAttackerAmount)) * (kPi / 180.0f);
+    vec3 rel = origin - uAttackerSwarmPivot;
+    float c = cos(angle), s = sin(angle);
+    vec3 rotated = vec3(c * rel.x - s * rel.z, rel.y, s * rel.x + c * rel.z);
+    vec3 anchor = uAttackerSwarmPivot + rotated;
+
+    const float goldenAngle = kPi * (3.0f - sqrt(5.0f));
+    float y = 1.0f - (float(i) / float(kAttackerAmount - 1)) * 2.0f;
+    float radiusAtY = sqrt(1.0f - y * y);
+    float theta = float(i) * goldenAngle;
+    return anchor + vec3(cos(theta) * radiusAtY, y, sin(theta) * radiusAtY) *
+                        kAttackerDistance;
+  }
+
+  // Drives the whole "Old Man attacks" shot, called every frame while that
+  // scene is active (via a SceneWindowEvent, whose onActive fires per-frame).
+  // Everything here is derived from the scene-local time rather than
+  // accumulated, so scrubbing or replaying can't leave stale state - except
+  // the mesh translation during the chase, which is genuinely incremental
+  // (see oldman.move) and is unwound in resetTimeline().
+  void updateOldmanAttack(float t) {
+    // --- who is still alive -------------------------------------------
+    int aliveMask = kAliveMaskAll;
+    for (const auto &run : attackRuns) {
+      if (t >= run.killTime) {
+        aliveMask &= ~(1 << run.attackerIndex);
+      }
+    }
+    if (aliveMask != uAttackerAliveMask) {
+      uAttackerAliveMask = aliveMask;
+      program.set("uAttackerAliveMask", uAttackerAliveMask);
+    }
+
+    // --- oldman's beams: at most kBeamSlots at once --------------------
+    bool inKillPhase = t < kFlightStart;
+    ivec3 targets = ivec3(-1);
+    if (inKillPhase) {
+      int slot = 0;
+      for (const auto &run : attackRuns) {
+        if (t >= run.beamStart && t < run.killTime && slot < kBeamSlots) {
+          targets[slot++] = run.attackerIndex;
+        }
+      }
+    }
+    if (targets != uOldmanBeamTargets) {
+      uOldmanBeamTargets = targets;
+      program.set("uOldmanBeamTargets", uOldmanBeamTargets);
+    }
+    // during the chase oldman stops shooting back
+    bool beamsOn = inKillPhase;
+    if (beamsOn != uOldmanBeamActive) {
+      uOldmanBeamActive = beamsOn;
+      program.set("uOldmanBeamActive", uOldmanBeamActive);
+    }
+
+    // --- the escape ----------------------------------------------------
+    // Positions are recomputed from elapsed chase time (not integrated per
+    // frame) so they're framerate independent and replay-safe.
+    float chaseTime = max(0.0f, t - kFlightStart);
+    vec3 offset = kEscapeVelocity * chaseTime;
+    vec3 newOldmanPos = fightPos + offset;
+    attackerSwarmPos = fightPos + vec3(800.0f, 0.0f, 0.0f) + offset;
+
+    // oldman.move() translates by an absolute delta, so feed it the
+    // difference from wherever the mesh currently sits
+    if (newOldmanPos != oldmanWorldPos) {
+      oldman.move(1.0f, newOldmanPos - oldmanWorldPos);
+      oldman.update(program);
+      oldmanWorldPos = newOldmanPos;
+    }
+
+    assetManager.spawn("oldman", oldmanWorldPos, 1.0f);
+    assetManager.spawn("attacker", attackerSwarmPos, kAttackerScale);
+
+    // survivors keep their beams locked on the fleeing oldman
+    uAttackerLaserTarget = oldmanWorldPos;
+    program.set("uAttackerLaserTarget", uAttackerLaserTarget);
+    uOldmanBeamStart = oldmanWorldPos + kOldmanMuzzleOffset;
+    program.set("uOldmanBeamStart", uOldmanBeamStart);
+  }
 
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
@@ -229,15 +383,9 @@ struct MainApp : public App {
     Scene POV;
     POV.name = "POV";
     {
+      // so the POV attacker isnt moved and we are suddenly just in space
       const int povAttackerIndex = 6;
-      const float attackerDistance = 400.0f; // must match attacker_distance_val
-      const float goldenAngle = 3.1415926f * (3.0f - sqrt(5.0f));
-      float y = 1.0f - (float(povAttackerIndex) / float(13 - 1)) * 2.0f;
-      float radiusAtY = sqrt(1.0f - y * y);
-      float theta = float(povAttackerIndex) * goldenAngle;
-      float x = cos(theta) * radiusAtY;
-      float z = sin(theta) * radiusAtY;
-      vec3 povAttackerPos = attackerPos + vec3(x, y, z) * attackerDistance;
+      vec3 povAttackerPos = attackerWorldPos(povAttackerIndex, attackerPos);
 
       // Classic over-the-shoulder framing
       vec3 forward = normalize(fightPos - povAttackerPos); // attacker -> oldman
@@ -252,13 +400,69 @@ struct MainApp : public App {
 
       vec3 povCamPos = povAttackerPos - forward * behindDistance +
                        left * leftDistance + up * upDistance;
-      POV.director.holdAt(povCamPos, fightPos, 8.0f);
+      POV.director.holdAt(povCamPos, fightPos, 7.0f);
     }
 
-    // Scene old_man_attacks;
-    // old_man-attacks.name = "Old Man attacks"
-    // ToDO: old man shoots attacker
-    // ToDo: old man flies away
+    for (int round = 0; round < kKillRounds; round++) {
+      for (int slot = 0; slot < kBeamSlots; slot++) {
+        int index = round * kBeamSlots + slot;
+        float killTime = kSlotStagger * float(slot) + kBeamDwell +
+                         float(round) * (kBeamDwell + kBeamReload);
+        attackRuns.push_back({index, killTime - kBeamDwell, killTime});
+      }
+    }
+
+    Scene old_man_attacks;
+    old_man_attacks.name = "Old Man attacks";
+
+    // Camera: swing back out to a wide vantage for the duel, hold through the
+    // kill phase, then trail the fleeing oldman.
+    vec3 duelCamPos = fightPos + vec3(1200.0f, 500.0f, 1200.0f);
+    old_man_attacks.director.moveCameraTo(duelCamPos, fightPos, 400.0f);
+    float flyInEnd = old_man_attacks.director.currentTimelineEnd;
+    old_man_attacks.director.holdAt(duelCamPos, fightPos,
+                                    max(0.0f, kFlightStart - flyInEnd));
+
+    // Endpoint of the chase is known up-front because the escape is a
+    // constant velocity starting at a fixed time.
+    vec3 escapeEnd = fightPos + kEscapeVelocity * kChaseDuration;
+    vec3 escapeDir = normalize(kEscapeVelocity);
+    vec3 chaseCamPos =
+        escapeEnd - escapeDir * 1400.0f + vec3(0.0f, 450.0f, 0.0f);
+    old_man_attacks.director.moveCameraTo(
+        chaseCamPos, escapeEnd,
+        glm::distance(duelCamPos, chaseCamPos) / kChaseDuration);
+
+    float attackDuration = old_man_attacks.director.currentTimelineEnd;
+
+    // the big blue laser is done - oldman switches to the green beams
+    old_man_attacks.windowEvents.push_back({0.0f, attackDuration, [this]() {
+                                              uLaserActive = false;
+                                              program.set("uLaserActive",
+                                                          uLaserActive);
+                                            }});
+
+    // survivors keep firing on oldman for the whole shot
+    old_man_attacks.windowEvents.push_back(
+        {0.0f, attackDuration, [this]() {
+           uAttackerLaserActive = true;
+           program.set("uAttackerLaserActive", uAttackerLaserActive);
+         }});
+
+    // per-frame driver: kills, beam targeting and the escape
+    old_man_attacks.windowEvents.push_back(
+        {0.0f, attackDuration,
+         [this]() { updateOldmanAttack(currentSceneTime); }});
+
+    // one explosion + SFX per kill, fired the frame that attacker dies
+    for (const auto &run : attackRuns) {
+      int index = run.attackerIndex;
+      old_man_attacks.oneShotEvents.push_back(
+          {run.killTime, [this, index]() {
+             explosions.spawn(attackerWorldPos(index, attackerSwarmPos), 10.0);
+             audio.playSFX("src/audio/explosion.wav");
+           }});
+    }
 
     Scene supernova;
     supernova.name = "Supernova";
@@ -281,9 +485,12 @@ struct MainApp : public App {
 
     scenes.push_back(linearSpace);
     scenes.push_back(Laser);
+    // recorded so the explosion SFX below can be offset onto the global clock
+    // by this scene's start, independent of how many scenes follow it
+    const int kampfSceneIndex = (int)scenes.size();
     scenes.push_back(kampf);
     scenes.push_back(POV);
-    // scenes.push_back(old_man_attacks);
+    scenes.push_back(old_man_attacks);
     // scenes.push_back(linearSpace); TODO: uncomment
     scenes.push_back(supernova);
 
@@ -295,8 +502,7 @@ struct MainApp : public App {
     // other scenes end up chained in front of Kampf later.
     audio.init();
     audio.playMusic("src/audio/Soundtrack.wav", 0.5f);
-    audio.scheduleSFX(sceneStartTime((int)scenes.size() - 1) +
-                          kAttackExplosionTime,
+    audio.scheduleSFX(sceneStartTime(kampfSceneIndex) + kAttackExplosionTime,
                       "src/audio/explosion.wav");
 
     // Init uniforms
@@ -329,6 +535,16 @@ struct MainApp : public App {
     program.set("uAttackerLaserCoreColor", uAttackerLaserCoreColor);
     program.set("uAttackerLaserGlowRadius", uAttackerLaserGlowRadius);
     program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
+    program.set("uAttackerAliveMask", uAttackerAliveMask);
+    program.set("uAttackerSwarmPivot", uAttackerSwarmPivot);
+    program.set("uOldmanBeamActive", uOldmanBeamActive);
+    program.set("uOldmanBeamStart", uOldmanBeamStart);
+    program.set("uOldmanBeamTargets", uOldmanBeamTargets);
+    program.set("uOldmanBeamRadius", uOldmanBeamRadius);
+    program.set("uOldmanBeamColor", uOldmanBeamColor);
+    program.set("uOldmanBeamCoreColor", uOldmanBeamCoreColor);
+    program.set("uOldmanBeamGlowRadius", uOldmanBeamGlowRadius);
+    program.set("uOldmanBeamGlowIntensity", uOldmanBeamGlowIntensity);
     program.set("uSunSize", uSunSize);
     program.use();
 
@@ -380,6 +596,7 @@ struct MainApp : public App {
       }
 
       float localTime = uFlightTime - elapsed;
+      currentSceneTime = localTime;
       Scene &scene = scenes[currentScene];
       // drives every spawn/despawn/laser/explosion trigger for this scene
       scene.update(localTime);
@@ -555,6 +772,30 @@ struct MainApp : public App {
     if (ImGui::SliderFloat("Attacker Laser Glow Intensity",
                            &uAttackerLaserGlowIntensity, 0.0f, 4.0f))
       program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
+    ImGui::SeparatorText("Oldman Beams");
+    if (ImGui::Checkbox("Oldman Beams Active", &uOldmanBeamActive))
+      program.set("uOldmanBeamActive", uOldmanBeamActive);
+    if (ImGui::SliderFloat("Oldman Beam Radius", &uOldmanBeamRadius, 0.1f,
+                           100.0f, "%.2f", ImGuiSliderFlags_Logarithmic))
+      program.set("uOldmanBeamRadius", uOldmanBeamRadius);
+    if (ImGui::ColorEdit3("Oldman Beam Glow Color",
+                          value_ptr(uOldmanBeamColor)))
+      program.set("uOldmanBeamColor", uOldmanBeamColor);
+    if (ImGui::ColorEdit3("Oldman Beam Core Color",
+                          value_ptr(uOldmanBeamCoreColor)))
+      program.set("uOldmanBeamCoreColor", uOldmanBeamCoreColor);
+    if (ImGui::SliderFloat("Oldman Beam Glow Radius", &uOldmanBeamGlowRadius,
+                           0.5f, 200.0f, "%.2f", ImGuiSliderFlags_Logarithmic))
+      program.set("uOldmanBeamGlowRadius", uOldmanBeamGlowRadius);
+    if (ImGui::SliderFloat("Oldman Beam Glow Intensity",
+                           &uOldmanBeamGlowIntensity, 0.0f, 4.0f))
+      program.set("uOldmanBeamGlowIntensity", uOldmanBeamGlowIntensity);
+    int aliveCount = 0;
+    for (int i = 0; i < kAttackerAmount; i++)
+      if (uAttackerAliveMask & (1 << i))
+        aliveCount++;
+    ImGui::Text("Attackers alive: %d / %d", aliveCount, kAttackerAmount);
+
     ImGui::SeparatorText("Audio");
     if (!audio.isAvailable()) {
       ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");

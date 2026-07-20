@@ -11,11 +11,15 @@ const float earthMoonDist = 384400.0;
 const int attackerAmount = 13;
 const float attacker_distance_val = 400.0;
 
+// Spreads the swarm around oldman by rotating each attacker's own anchor
+// around a fixed pivot. Index 6 gets angle 0 so its position is unchanged
 vec3 attackerSwarmAnchor(int i, vec3 origin) {
   float angleDeg = float(i - 6) * (360.0 / float(attackerAmount));
-  vec3 relativeToOldman = origin - uAttackerLaserTarget;
-  return uAttackerLaserTarget + rotateY(relativeToOldman, degToRad(angleDeg));
+  vec3 relativeToPivot = origin - uAttackerSwarmPivot;
+  return uAttackerSwarmPivot + rotateY(relativeToPivot, degToRad(angleDeg));
 }
+
+bool attackerAlive(int i) { return (uAttackerAliveMask & (1 << i)) != 0; }
 
 vec3 attackerSpherePosition(int i, vec3 origin) {
   float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
@@ -107,6 +111,10 @@ RaytraceResult proceduralScene(
     vec3 attacker_origin = u_attacker_pos;
 
     for (int i = 0; i < attackerAmount; i++) {
+      // destroyed attackers stop rendering (and stop casting shadows)
+      if (!attackerAlive(i)) {
+        continue;
+      }
       vec3 attackerPos = attackerSpherePosition(i, attacker_origin);
       float distance = proceduralSphere(
           rayOrigin,

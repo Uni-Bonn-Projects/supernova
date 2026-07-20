@@ -40,6 +40,10 @@ vec3 renderAt(vec2 ndc, vec2 offset, vec3 rayDir, vec3 x, vec3 y) {
   vec4 attackerGlow = attackerLaserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
   color = mix(color, attackerGlow.rgb, attackerGlow.a);
 
+  // Oldman's green return fire, same again
+  vec4 oldmanBeams = oldmanBeamGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
+  color = mix(color, oldmanBeams.rgb, oldmanBeams.a);
+
   return color;
 }
 

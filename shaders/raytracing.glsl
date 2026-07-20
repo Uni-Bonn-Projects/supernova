@@ -168,11 +168,38 @@ vec4 attackerLaserGlow(vec3 ro, vec3 rd, float maxDepth) {
 
   vec4 accum = vec4(0.0);
   for (int i = 0; i < attackerAmount; i++) {
+    // destroyed attackers stop shooting
+    if (!attackerAlive(i)) {
+      continue;
+    }
     vec3 beamStart = attackerSpherePosition(i, u_attacker_pos);
     vec4 beam = laserSegmentGlow(ro, rd, maxDepth, beamStart,
         oldmanHitPoint(i), uAttackerLaserRadius, uAttackerLaserColor,
         uAttackerLaserCoreColor, uAttackerLaserGlowRadius,
         uAttackerLaserGlowIntensity, 16);
+    accum.rgb += beam.rgb * beam.a * (1.0 - accum.a);
+    accum.a += beam.a * (1.0 - accum.a);
+  }
+  return accum;
+}
+
+/// Oldman firing back: up to 3 green beams, each locked onto one attacker
+/// sphere. Which spheres (and how many) is decided on the CPU side and passed
+/// in as indices via uOldmanBeamTargets, with -1 marking an unused slot.
+vec4 oldmanBeamGlow(vec3 ro, vec3 rd, float maxDepth) {
+  if (!uOldmanBeamActive) return vec4(0.0);
+
+  vec4 accum = vec4(0.0);
+  for (int slot = 0; slot < 3; slot++) {
+    int target = uOldmanBeamTargets[slot];
+    if (target < 0 || target >= attackerAmount || !attackerAlive(target)) {
+      continue;
+    }
+    vec3 beamEnd = attackerSpherePosition(target, u_attacker_pos);
+    vec4 beam = laserSegmentGlow(ro, rd, maxDepth, uOldmanBeamStart,
+        beamEnd, uOldmanBeamRadius, uOldmanBeamColor,
+        uOldmanBeamCoreColor, uOldmanBeamGlowRadius,
+        uOldmanBeamGlowIntensity, 16);
     accum.rgb += beam.rgb * beam.a * (1.0 - accum.a);
     accum.a += beam.a * (1.0 - accum.a);
   }
