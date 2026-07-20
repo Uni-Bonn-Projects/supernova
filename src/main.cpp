@@ -680,7 +680,7 @@ struct MainApp : public App {
     } else {
       // goes down slowly instead of instantly
       // glm::mix(a, b, c) = a + (b - a) * c
-      uApertureSize = glm::mix(uApertureSize, 0.0f, 0.05f);
+      uApertureSize = glm::mix(uApertureSize, 0.0f, 0.20f);
       uFocusSamples = uApertureSize < 0.1f ? 1 : 4;
     }
     // after every frame
