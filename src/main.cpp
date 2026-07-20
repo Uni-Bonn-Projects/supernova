@@ -104,11 +104,11 @@ struct MainApp : public App {
   bool uLaserActive = false; // not visible before its triggered
   vec3 uLaserStart = fightPos + kOldmanMuzzleOffset;
   vec3 uLaserEnd = uLaserStart;
-  float uLaserRadius = 1.25f;
+  float uLaserRadius = 20.0f;
   vec3 uLaserColor = vec3(0.1f, 0.4f, 1.0f); // blue halo
   vec3 uLaserCoreColor = vec3(0.8f, 0.9f, 1.0f);
   float uLaserGlowRadius = 7.5f;
-  float uLaserGlowIntensity = 1.0f;
+  float uLaserGlowIntensity = 7.5f;
   // Cinematic firing window (seconds into uFlightTime); kept separate from
   // uLaserActive so ImGui can still force it on/off manually while uAutoCam
   // is off.
@@ -193,7 +193,7 @@ struct MainApp : public App {
     kampf.windowEvents.push_back(
         {6.0f, 25.0f,
          [this, attackerPos]() {
-           assetManager.spawn("attacker", attackerPos, 2.5f);
+           assetManager.spawn("attacker", attackerPos, 7.5f);
          },
          [this]() { assetManager.despawn("attacker"); }});
 
@@ -247,7 +247,7 @@ struct MainApp : public App {
     // sceneStartTime() here to land on the same global instant even if
     // other scenes end up chained in front of Kampf later.
     audio.init();
-    audio.playMusic("src/audio/Geist.wav", 0.5f);
+    audio.playMusic("src/audio/Soundtrack.wav", 0.5f);
     audio.scheduleSFX(sceneStartTime((int)scenes.size() - 1) +
                           kAttackExplosionTime,
                       "src/audio/explosion.wav");
