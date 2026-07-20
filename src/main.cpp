@@ -195,23 +195,19 @@ struct MainApp : public App {
     kampf.director.holdAt(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
                           10.0f);
 
-    // oldman and laser are visible for the whole shot (0s-25s)
     kampf.windowEvents.push_back(
         {0.0f, 25.0f,
-         [this]() { assetManager.spawn("oldman", fightPos, 1.0f); },
-         [this]() { assetManager.despawn("oldman"); }});
+         [this]() { assetManager.spawn("oldman", fightPos, 1.0f); }});
     kampf.windowEvents.push_back({0.0f, 25.0f, [this]() {
                                     uLaserActive = true;
                                     program.set("uLaserActive", uLaserActive);
                                   }});
 
-    // attacker swarm shows up partway through (6s-25s)
-    kampf.windowEvents.push_back(
-        {6.0f, 25.0f,
-         [this, attackerPos]() {
-           assetManager.spawn("attacker", attackerPos, 7.5f);
-         },
-         [this]() { assetManager.despawn("attacker"); }});
+    // attacker swarm shows up partway through (6s+)
+    kampf.windowEvents.push_back({6.0f, 25.0f, [this, attackerPos]() {
+                                    assetManager.spawn("attacker", attackerPos,
+                                                       7.5f);
+                                  }});
 
     // one-shot visual explosion, paired with the SFX scheduled below at the
     // same kAttackExplosionTime
@@ -220,24 +216,42 @@ struct MainApp : public App {
                                    }});
 
     // attacker swarm opens fire on oldman at uLaserFireEnd, alongside the
-    // still-firing blue laser (which now stays on past this scene until a
-    // later scene deactivates it), until the swarm despawns at 25s
-    kampf.windowEvents.push_back(
-        {uLaserFireEnd, 25.0f,
-         [this]() {
-           uAttackerLaserActive = true;
-           program.set("uAttackerLaserActive", uAttackerLaserActive);
-         },
-         [this]() {
-           uAttackerLaserActive = false;
-           program.set("uAttackerLaserActive", uAttackerLaserActive);
-         }});
+    // still-firing blue laser, and (like everything else above) just stays
+    // on rather than auto-deactivating
+    kampf.windowEvents.push_back({uLaserFireEnd, 25.0f, [this]() {
+                                    uAttackerLaserActive = true;
+                                    program.set("uAttackerLaserActive",
+                                                uAttackerLaserActive);
+                                  }});
 
-    // Scene POV;
-    // POV.name = "POV";
-    // vec3 POVCamPos = vec3(800.0f, 0.0f, 0.0f); ToDO: richtige position finden
-    // linearSpace.director.holdAt(POVCamPos, fightPos, 4.0f);
-    // ToDO: laser von beiden
+    Scene POV;
+    POV.name = "POV";
+    {
+      const int povAttackerIndex = 6;
+      const float attackerDistance = 400.0f; // must match attacker_distance_val
+      const float goldenAngle = 3.1415926f * (3.0f - sqrt(5.0f));
+      float y = 1.0f - (float(povAttackerIndex) / float(13 - 1)) * 2.0f;
+      float radiusAtY = sqrt(1.0f - y * y);
+      float theta = float(povAttackerIndex) * goldenAngle;
+      float x = cos(theta) * radiusAtY;
+      float z = sin(theta) * radiusAtY;
+      vec3 povAttackerPos = attackerPos + vec3(x, y, z) * attackerDistance;
+
+      // Classic over-the-shoulder framing
+      vec3 forward = normalize(fightPos - povAttackerPos); // attacker -> oldman
+      vec3 left = normalize(cross(vec3(0.0f, 1.0f, 0.0f), forward));
+      vec3 up = cross(forward, left);
+
+      float behindDistance =
+          60.0f; // how far behind the attacker, away from oldman
+      float leftDistance =
+          15.0f; // slight sideways offset so the attacker isn't dead-center
+      float upDistance = 10.0f; // slight upward offset, for a nicer angle
+
+      vec3 povCamPos = povAttackerPos - forward * behindDistance +
+                       left * leftDistance + up * upDistance;
+      POV.director.holdAt(povCamPos, fightPos, 8.0f);
+    }
 
     // Scene old_man_attacks;
     // old_man-attacks.name = "Old Man attacks"
@@ -251,7 +265,7 @@ struct MainApp : public App {
     scenes.push_back(linearSpace);
     scenes.push_back(Laser);
     scenes.push_back(kampf);
-    // scenes.push_back(POV);
+    scenes.push_back(POV);
     // scenes.push_back(old_man_attacks);
     // scenes.push_back(linearSpace); TODO: uncomment
     // scenes.push_back(supernova);

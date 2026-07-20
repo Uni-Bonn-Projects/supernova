@@ -11,13 +11,19 @@ const float earthMoonDist = 384400.0;
 const int attackerAmount = 13;
 const float attacker_distance_val = 400.0;
 
+vec3 attackerSwarmAnchor(int i, vec3 origin) {
+  float angleDeg = float(i - 6) * (360.0 / float(attackerAmount));
+  vec3 relativeToOldman = origin - uAttackerLaserTarget;
+  return uAttackerLaserTarget + rotateY(relativeToOldman, degToRad(angleDeg));
+}
+
 vec3 attackerSpherePosition(int i, vec3 origin) {
   float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
   float radius_at_y = sqrt(1.0 - y * y);
   float theta = float(i) * GOLDEN_ANGLE;
   float x = cos(theta) * radius_at_y;
   float z = sin(theta) * radius_at_y;
-  return origin + vec3(x, y, z) * attacker_distance_val;
+  return attackerSwarmAnchor(i, origin) + vec3(x, y, z) * attacker_distance_val;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
