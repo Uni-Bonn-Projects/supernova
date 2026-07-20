@@ -29,3 +29,29 @@ Danach wollte ich Bewegungsunschärfe umsetzen. Doch unsere Objekte waren noch n
 ![alt text](image.png)
 
 Außerdem lief unser Projekt bereits recht langsam, sodass Bewegungsunschärfe dieses Problem nur vergrößern würde. Deshalb hatte ich mich dafür entschlossen, dass ich stattdessen Fokusunschärfe mache, aber diese nur während den Explosionen aktiviere. Damit leiden unsere FPS nicht so sehr und gibt den Explosionen mehr Wucht. Für die Fokusunschärfe habe ich einen Offset im Shader erstellt, welcher von innen nach außen sich vergrößert. Danach habe ich jeden Pixel so oft wie unsere Sample Menge gerendert, wobei jeder durchlauf leicht verschoben war. Danach wurde der Durchschnitt der Farbe jedes Pixels gemacht, sodass die Pixel nicht n-mal so hell sind. Die Distanz der Fokusunschärfe ist immer die Distanz der Kamera zu dessen Target, sodass das Ziel immer im Fokus ist. Zum Schluss habe ich den Explosionen eine boolische Funktion angehangen, wenn es eine Explosion gibt und die Fokusunschärfe immer dann aktiviert. Nach jeder Explosion gehen die Werte der Unschärfe langsam und nicht auf einmal wieder runter.
+
+## Dennis
+
+Meine Themen waren:
+1. Algorithmisch erzeugte Geometrie
+2. Boolesche Geometrie
+3. Partikelsysteme
+
+### Der Anfang
+
+Da ich als erstes Zeit gefunden hatte um mit dem Projekt anzufangen, habe ich
+zuerst unsere ganze Devumgebung erstellt. Darunter zählt:
+- das repository erstellen
+- via [devenv](https://devenv.sh/) alle Abhängigkeiten und Skripts definieren,
+damit ich und meine Gruppen alles gleich installiert haben
+- den Code von Aufgabe 4a kopieren
+- und die README erstellen, damit mein Team weiß wie man devenv benutzt
+
+Als dann der erste, Florian, versucht hatte die Devumgebung zu benutzen, hatte
+er einige Probleme mit OpenGL. Das lag daran, dass devenv auf Nix basiert, wo
+dynamische Bibliotheken, wie OpenGL, ein wenig anders funktionieren. Da er (und
+Noah) kein NixOS benutzt, mussten wir erst einmal recherchieren, wie man das
+Problem behebt. Am Ende ging das jedoch recht leicht, indem man das Program mit
+[nixGL](https://github.com/nix-community/nixgl) startet. Das ganze haben wir dann
+im `build` und `run` Skript versteckt.
+
