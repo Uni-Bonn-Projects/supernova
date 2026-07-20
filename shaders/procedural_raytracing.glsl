@@ -46,7 +46,7 @@ vec3 proceduralStars(vec3 rayDir) {
 }
 
 vec3 proceduralSun(vec3 rayDir) {
-  return vec3(pow(max(0.0, dot(rayDir, uLightDir)), 1000));
+  return vec3(pow(max(0.0, dot(rayDir, uLightDir)), uSunSize));
 }
 
 vec3 proceduralSky(vec3 rayDir) {

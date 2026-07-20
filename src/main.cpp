@@ -98,6 +98,8 @@ struct MainApp : public App {
   float uApertureSize = 0.0f;
   int uFocusSamples = 1;
 
+  float uSunSize = 1000.0f;
+
   // Offset from fightPos to the top of the oldman mesh (top_dome is a
   // radius-100 sphere centered on the mesh's own origin, see oldman.cpp),
   // i.e. roughly the muzzle the laser fires from.
@@ -258,9 +260,24 @@ struct MainApp : public App {
     // ToDO: old man shoots attacker
     // ToDo: old man flies away
 
-    // Scene Supernova;
-    // Supernova.name = "supernova";
-    // ToDo: supernova
+    Scene supernova;
+    supernova.name = "Supernova";
+
+    vec3 sunPos = vec3(1000.0f, 500.0f, 1000.0f);
+    vec3 supernovaCamPos = fightPos + vec3(1200.0f, 500.0f, 1200.0f);
+
+    supernova.director.holdAt(supernovaCamPos, sunPos, 8.0f);
+
+    supernova.windowEvents.push_back(
+        {0.0f, 8.0f,
+         [this]() {
+           uSunSize = glm::max(uSunSize - App::delta * 150.0f, 0.0f);
+           program.set("uSunSize", uSunSize);
+         },
+         [this]() {
+           uSunSize = 1000.0f;
+           program.set("uSunSize", uSunSize);
+         }});
 
     scenes.push_back(linearSpace);
     scenes.push_back(Laser);
@@ -268,7 +285,7 @@ struct MainApp : public App {
     scenes.push_back(POV);
     // scenes.push_back(old_man_attacks);
     // scenes.push_back(linearSpace); TODO: uncomment
-    // scenes.push_back(supernova);
+    scenes.push_back(supernova);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
     // effects are triggered off the same global uFlightTime clock that
@@ -312,6 +329,7 @@ struct MainApp : public App {
     program.set("uAttackerLaserCoreColor", uAttackerLaserCoreColor);
     program.set("uAttackerLaserGlowRadius", uAttackerLaserGlowRadius);
     program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
+    program.set("uSunSize", uSunSize);
     program.use();
 
     explosions.init();

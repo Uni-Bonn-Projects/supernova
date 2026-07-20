@@ -51,3 +51,6 @@ uniform vec3 uAttackerLaserColor = vec3(0.9, 0.2, 0.05); // red/orange halo
 uniform vec3 uAttackerLaserCoreColor = vec3(1.0, 0.8, 0.3);
 uniform float uAttackerLaserGlowRadius = 3.0;
 uniform float uAttackerLaserGlowIntensity = 1.0;
+
+// size of sun for supernova
+uniform float uSunSize = 1000.0;
