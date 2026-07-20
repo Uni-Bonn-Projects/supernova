@@ -55,3 +55,51 @@ Problem behebt. Am Ende ging das jedoch recht leicht, indem man das Program mit
 [nixGL](https://github.com/nix-community/nixgl) startet. Das ganze haben wir dann
 im `build` und `run` Skript versteckt.
 
+### Die ersten 2 Features
+
+Der Grund warum ich den Code der 4a in dieses Projekt am Anfang kopiert hatte war,
+dass ich dort schon Algorithmisch erzeugte Geometrie via Raymarching implementiert
+hatte. Dadurch konnte ich Feature Nummer 1 abhaken. Zufälligerweise war dort
+der Code fürs Shadow Mapping, was Noah eigentlich hätte implemtieren müssen,
+schon vorgegeben gewesen.
+
+Danach habe ich mich an die Boolesche Geometrie gesetzt. Anfangs dachte ich, dass
+es relativ schwer werden würde zu implementieren, jedoch habe ich nach kurzer
+Google suche folgende Webseite gefunden: <https://iquilezles.org/articles/distfunctions/>
+
+Nachdem ich die folgenden 8 relevanten Zeilen kopiert hatte, konnte ich den
+OLDMAN (das 200km große Raumschiff aus den Perry Rhodan büchern) recht leicht
+zusammenbauen und rendern:
+
+```glsl
+float intersectSDF(float distA, float distB) {
+  return max(distA, distB);
+}
+float unionSDF(float distA, float distB) {
+  return min(distA, distB);
+}
+float differenceSDF(float distA, float distB) {
+  return max(distA, -distB);
+}
+```
+
+Damit ich auch sehen konnte, was ich überhaupt programmiere, habe ich auch noch
+ganz schnell ein paar Controls für die Kamera hinzugefügt. (WASD Controls und
+Hoch- und Runterfliegen)
+
+Das Resultat zu diesem Zeitpunkt sah so aus:
+
+![](./raymarching_oldman.png)
+
+Rückblickend waren die 12 Sektionen nicht weit genug draußen. (Man kann hier
+nur die ersten 25km von denen sehen)
+
+Ab da hatte ich gemerkt, dass es ein paar Performance Probleme gibt. Um diese zu
+mitigieren, habe ich zuerst alle 12 Sektionen aufeinmal rendern lassen, indem
+ich eine Box 11 weitere mal im Kreis spiegele. Die Mathematik dafür verdanke ich
+wieder einem Artikel von <https://iquilezles.org/>. Als zweites habe ich dann
+alles um ein Faktor 1000 geschrumpft.
+
+Bevor Florian und Noah dann richtig angefangen haben am Projekt zu arbeiten,
+habe ich noch die Angreifer, einfache, algorithmisch erzeugte Kugeln, erstellt.
+
