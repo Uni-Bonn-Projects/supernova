@@ -135,3 +135,36 @@ Linearraumhintergrund. Hier leider nur ein statisches Bild davon:
 
 ![](./img/linear_space.png)
 
+## Partikelsystem
+
+Jetzt wo es nichts mehr gab, mit dem ich mich weiter drücken konnte, habe ich
+an das Partikelsystem setzen müssen. Wie ich befürchtet hatte, war dieses System
+nicht gerade leicht umsetzbar.
+
+Zu allererst habe ich mich auf die Suche gemacht, wie man sowas normalerweise
+implementiert. Folgender Artikel hat dabei meine Implemention sehr stark inspiriert:
+<https://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/>
+
+Damit ich mich aber erstmal aufs wesentliche konzentrieren konnte, habe ich erst
+eine minimale Version, ohne OLDMAN und was auch immer wir schon gemacht hatten,
+erstellt. In dieser konnte ich dann, via Instanzierung und Offsets in einem
+`GL_ARRAY_BUFFER` folgende Explosionen implementieren.
+
+![](./img/early_explosions.png)
+
+Dies ist aber nur ein Standbild von Partikeln, welche in der Mitte spawnen und
+sich gleichmäßig nach außen ausbreiten, bis sie despawnen. Die Explosion ist
+zudem auch gestreckt, was später in der Integrierung, ohne mein zutun, weging.
+
+Wie man sich bestimmt denken kann habe ich dann diese minimale Version, in Form
+der `Explosions` Klasse in die `MainApp` Klasse integriert. `Explosions` hatte
+dabei ihr eigenes Shaderprogramm, Mesh und Daten natürlich. In Prinzip liefen ab
+diesem Zeitpunkt zwei Programme, welche nacheinander zum gleichen Bildschirm
+rendern.
+
+Nachdem ich noch zufällige Geschwindigkeiten und eine Kasinomäßige
+Überlebensberechnung der Partikel hinzugefügt hatte sahen die Explosionen wie
+folgt aus:
+
+![](./img/final_explosions.png)
+
