@@ -118,3 +118,20 @@ eigenen kleinen Shader preprocessor geschrieben, der einfach nur die ganzen
 `#include`'s auflöst und das Resultat an den Shader Compiler vom Framework
 weitergibt.
 
+## Himmelskörper und Hintergründe
+
+Nach diesem kleinem Exkurs habe ich noch die Erde und den Mond erstellt (wieder
+algorithmisch erzeugte Kugeln) und sowohl den Stern- als auch Linearraumhintergrund
+(das bunte Wabern) programmiert.
+
+Erde und Mond mit Sternenhintergrund:
+
+![](./img/earth_moon_star_background.png)
+
+Bei der Bewegung der Kamera flackern die Sterne ein bisschen, jedoch konnte ich
+das nie fixen ohne ein statisches Bild in die Skybox zu laden.
+
+Linearraumhintergrund. Hier leider nur ein statisches Bild davon:
+
+![](./img/linear_space.png)
+
