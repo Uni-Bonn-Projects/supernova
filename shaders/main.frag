@@ -36,6 +36,10 @@ vec3 renderAt(vec2 ndc, vec2 offset, vec3 rayDir, vec3 x, vec3 y) {
   vec4 glow = laserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
   color = mix(color, glow.rgb, glow.a);
 
+  // Attacker swarm's return fire, composited the same way
+  vec4 attackerGlow = attackerLaserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
+  color = mix(color, attackerGlow.rgb, attackerGlow.a);
+
   return color;
 }
 

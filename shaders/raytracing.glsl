@@ -99,12 +99,15 @@ vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitD
   return calcLighting(result);
 }
 
-/// Purely volumetric laser halo, there is no solid laser
-vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
-  if (!uLaserActive) return vec4(0.0);
-
-  vec3 ba = uLaserEnd - uLaserStart;
-  vec3 r = ro - uLaserStart;
+/// Purely volumetric laser halo, there is no solid laser. Shared by the big
+/// blue oldman-to-sun laser (laserGlow()) and the attacker swarm's beams
+/// (attackerLaserGlow()) - only the geometry/style is parameterized here,
+/// the on/off gating stays per-caller since each has its own uniform.
+vec4 laserSegmentGlow(vec3 ro, vec3 rd, float maxDepth, vec3 start, vec3 end,
+                       float radius, vec3 color, vec3 coreColor,
+                       float glowRadius, float glowIntensity, int steps) {
+  vec3 ba = end - start;
+  vec3 r = ro - start;
   float A = dot(rd, rd);
   float B = dot(rd, ba);
   float E = dot(ba, ba);
@@ -112,30 +115,66 @@ vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
   float F = dot(ba, r);
   float denom = A * E - B * B;
   float tc = (abs(denom) < 1e-6)
-    ? dot((uLaserStart + uLaserEnd) * 0.5 - ro, rd) / A : (B * F - C * E) / denom;
+    ? dot((start + end) * 0.5 - ro, rd) / A : (B * F - C * E) / denom;
 
-  float W = uLaserGlowRadius * 4.0; // half-window
+  float W = glowRadius * 4.0; // half-window
   float t0 = max(uNear, tc - W);
   float t1 = min(maxDepth, tc + W);
   if (t1 <= t0) return vec4(0.0);
 
-  const int GLOW_STEPS = 32;
-  float dt = (t1 - t0) / float(GLOW_STEPS);
+  float dt = (t1 - t0) / float(steps);
   vec3 accumColor = vec3(0.0);
   float accumAlpha = 0.0;
-  for (int i = 0; i < GLOW_STEPS; i++) {
+  for (int i = 0; i < steps; i++) {
     vec3 p = ro + rd * (t0 + dt * (float(i) + 0.5));
-    float d = max(distToAxis(p, uLaserStart, uLaserEnd) - uLaserRadius, 0.0);
+    float d = max(distToAxis(p, start, end) - radius, 0.0);
     // alpha = 1 on the axis (d = 0), exponential falloff with distance
-    float sampleAlpha = exp(-(d * d) / (uLaserGlowRadius * uLaserGlowRadius));
-    // white-hot near the axis, fading to the blue halo color outward
-    vec3 sampleColor = mix(uLaserCoreColor, uLaserColor,
-        clamp(d / uLaserGlowRadius, 0.0, 1.0));
+    float sampleAlpha = exp(-(d * d) / (glowRadius * glowRadius));
+    // white-hot near the axis, fading to the halo color outward
+    vec3 sampleColor = mix(coreColor, color, clamp(d / glowRadius, 0.0, 1.0));
 
     // front-to-back "over" compositing along the march window
     float contribution = sampleAlpha * (1.0 - accumAlpha);
     accumColor += sampleColor * contribution;
     accumAlpha += contribution;
   }
-  return vec4(accumColor, clamp(accumAlpha * uLaserGlowIntensity, 0.0, 1.0));
+  return vec4(accumColor, clamp(accumAlpha * glowIntensity, 0.0, 1.0));
+}
+
+vec4 laserGlow(vec3 ro, vec3 rd, float maxDepth) {
+  if (!uLaserActive) return vec4(0.0);
+  return laserSegmentGlow(ro, rd, maxDepth, uLaserStart, uLaserEnd,
+                           uLaserRadius, uLaserColor, uLaserCoreColor,
+                           uLaserGlowRadius, uLaserGlowIntensity, 32);
+}
+
+const float oldmanHitRadius = 90.0;
+
+// so that not every attacker beam shoots at the same poition
+vec3 oldmanHitPoint(int i) {
+  float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
+  float radius_at_y = sqrt(1.0 - y * y);
+  float theta = float(i) * GOLDEN_ANGLE + PI;
+  float x = cos(theta) * radius_at_y;
+  float z = sin(theta) * radius_at_y;
+  return uAttackerLaserTarget + vec3(x, y, z) * oldmanHitRadius;
+}
+
+/// Attacker swarm opening fire on oldman: one small beam per attacker
+/// sphere, each landing on a different part of the mesh, composited
+/// together.
+vec4 attackerLaserGlow(vec3 ro, vec3 rd, float maxDepth) {
+  if (!uAttackerLaserActive) return vec4(0.0);
+
+  vec4 accum = vec4(0.0);
+  for (int i = 0; i < attackerAmount; i++) {
+    vec3 beamStart = attackerSpherePosition(i, u_attacker_pos);
+    vec4 beam = laserSegmentGlow(ro, rd, maxDepth, beamStart,
+        oldmanHitPoint(i), uAttackerLaserRadius, uAttackerLaserColor,
+        uAttackerLaserCoreColor, uAttackerLaserGlowRadius,
+        uAttackerLaserGlowIntensity, 16);
+    accum.rgb += beam.rgb * beam.a * (1.0 - accum.a);
+    accum.a += beam.a * (1.0 - accum.a);
+  }
+  return accum;
 }

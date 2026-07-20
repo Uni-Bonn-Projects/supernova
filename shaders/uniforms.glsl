@@ -42,3 +42,12 @@ uniform vec3 uLaserColor = vec3(0.1, 0.4, 1.0); // blue halo
 uniform vec3 uLaserCoreColor = vec3(0.8, 0.9, 1.0);
 uniform float uLaserGlowRadius = 3.0;
 uniform float uLaserGlowIntensity = 1.0;
+
+// attacker swarm fire (small red/orange lasers converging on oldman) - deps: raytracing
+uniform bool uAttackerLaserActive = false;
+uniform vec3 uAttackerLaserTarget = vec3(0.0); // oldman's muzzle point, fixed
+uniform float uAttackerLaserRadius = 5.0;
+uniform vec3 uAttackerLaserColor = vec3(0.9, 0.2, 0.05); // red/orange halo
+uniform vec3 uAttackerLaserCoreColor = vec3(1.0, 0.8, 0.3);
+uniform float uAttackerLaserGlowRadius = 3.0;
+uniform float uAttackerLaserGlowIntensity = 1.0;

@@ -72,6 +72,8 @@ struct MainApp : public App {
     program.set("uInLinearSpace", uInLinearSpace);
     uLaserActive = false;
     program.set("uLaserActive", uLaserActive);
+    uAttackerLaserActive = false;
+    program.set("uAttackerLaserActive", uAttackerLaserActive);
   }
   Explosions explosions;
   AudioEngine audio;
@@ -114,6 +116,18 @@ struct MainApp : public App {
   // is off.
   float uLaserFireStart = 15.0f;
   float uLaserFireEnd = 20.0f;
+
+  // attacker swarm's return fire: 13 small beams (one per attacker sphere,
+  // positions computed in-shader) converging on oldman's muzzle
+  bool uAttackerLaserActive = false;
+  // Center of the oldman mesh; each beam aims at a different point scattered
+  // around it
+  vec3 uAttackerLaserTarget = fightPos;
+  float uAttackerLaserRadius = 1.5f;
+  vec3 uAttackerLaserColor = vec3(0.9f, 0.2f, 0.05f); // red/orange halo
+  vec3 uAttackerLaserCoreColor = vec3(1.0f, 0.8f, 0.3f);
+  float uAttackerLaserGlowRadius = 1.0f;
+  float uAttackerLaserGlowIntensity = 1.0f;
 
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
@@ -160,13 +174,8 @@ struct MainApp : public App {
            program.set("uInLinearSpace", uInLinearSpace);
          }});
 
-    Laser.windowEvents.push_back({5.0f, 12.0f,
-                                  [this]() {
+    Laser.windowEvents.push_back({5.0f, 12.0f, [this]() {
                                     uLaserActive = true;
-                                    program.set("uLaserActive", uLaserActive);
-                                  },
-                                  [this]() {
-                                    uLaserActive = false;
                                     program.set("uLaserActive", uLaserActive);
                                   }});
 
@@ -182,12 +191,19 @@ struct MainApp : public App {
                                 attackerPos, 56.0f);
     kampf.director.moveCameraTo(fightPos + vec3(1200.0f, 500.0f, 1200.0f),
                                 fightPos, 201.0f);
+    // Holding so the scene is long enough
+    kampf.director.holdAt(fightPos + vec3(1200.0f, 500.0f, 1200.0f), fightPos,
+                          10.0f);
 
-    // oldman is visible for the whole shot (0s-25s)
+    // oldman and laser are visible for the whole shot (0s-25s)
     kampf.windowEvents.push_back(
         {0.0f, 25.0f,
          [this]() { assetManager.spawn("oldman", fightPos, 1.0f); },
          [this]() { assetManager.despawn("oldman"); }});
+    kampf.windowEvents.push_back({0.0f, 25.0f, [this]() {
+                                    uLaserActive = true;
+                                    program.set("uLaserActive", uLaserActive);
+                                  }});
 
     // attacker swarm shows up partway through (6s-25s)
     kampf.windowEvents.push_back(
@@ -197,25 +213,25 @@ struct MainApp : public App {
          },
          [this]() { assetManager.despawn("attacker"); }});
 
-    // laser only visible during its own cinematic firing window; must be
-    // invisible the rest of the time
-    kampf.windowEvents.push_back({uLaserFireStart, uLaserFireEnd,
-                                  [this]() {
-                                    uLaserActive = true;
-                                    program.set("uLaserActive", uLaserActive);
-                                  },
-                                  [this]() {
-                                    uLaserActive = false;
-                                    program.set("uLaserActive", uLaserActive);
-                                  }});
-
     // one-shot visual explosion, paired with the SFX scheduled below at the
     // same kAttackExplosionTime
     kampf.oneShotEvents.push_back({kAttackExplosionTime, [this, attackerPos]() {
                                      explosions.spawn(attackerPos, 10.0);
                                    }});
 
-    // ToDO attacker angriffe in scene Kampf
+    // attacker swarm opens fire on oldman at uLaserFireEnd, alongside the
+    // still-firing blue laser (which now stays on past this scene until a
+    // later scene deactivates it), until the swarm despawns at 25s
+    kampf.windowEvents.push_back(
+        {uLaserFireEnd, 25.0f,
+         [this]() {
+           uAttackerLaserActive = true;
+           program.set("uAttackerLaserActive", uAttackerLaserActive);
+         },
+         [this]() {
+           uAttackerLaserActive = false;
+           program.set("uAttackerLaserActive", uAttackerLaserActive);
+         }});
 
     // Scene POV;
     // POV.name = "POV";
@@ -237,7 +253,7 @@ struct MainApp : public App {
     scenes.push_back(kampf);
     // scenes.push_back(POV);
     // scenes.push_back(old_man_attacks);
-    scenes.push_back(linearSpace);
+    // scenes.push_back(linearSpace); TODO: uncomment
     // scenes.push_back(supernova);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
@@ -275,6 +291,13 @@ struct MainApp : public App {
     program.set("uLaserCoreColor", uLaserCoreColor);
     program.set("uLaserGlowRadius", uLaserGlowRadius);
     program.set("uLaserGlowIntensity", uLaserGlowIntensity);
+    program.set("uAttackerLaserActive", uAttackerLaserActive);
+    program.set("uAttackerLaserTarget", uAttackerLaserTarget);
+    program.set("uAttackerLaserRadius", uAttackerLaserRadius);
+    program.set("uAttackerLaserColor", uAttackerLaserColor);
+    program.set("uAttackerLaserCoreColor", uAttackerLaserCoreColor);
+    program.set("uAttackerLaserGlowRadius", uAttackerLaserGlowRadius);
+    program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
     program.use();
 
     explosions.init();
@@ -481,6 +504,25 @@ struct MainApp : public App {
       program.set("uLaserGlowIntensity", uLaserGlowIntensity);
     ImGui::SliderFloat("Laser Fire Start (s)", &uLaserFireStart, 0.0f, 400.0f);
     ImGui::SliderFloat("Laser Fire End (s)", &uLaserFireEnd, 0.0f, 400.0f);
+    ImGui::SeparatorText("Attacker Lasers");
+    if (ImGui::Checkbox("Attacker Lasers Active", &uAttackerLaserActive))
+      program.set("uAttackerLaserActive", uAttackerLaserActive);
+    if (ImGui::SliderFloat("Attacker Laser Radius", &uAttackerLaserRadius, 0.1f,
+                           100.0f, "%.2f", ImGuiSliderFlags_Logarithmic))
+      program.set("uAttackerLaserRadius", uAttackerLaserRadius);
+    if (ImGui::ColorEdit3("Attacker Laser Glow Color",
+                          value_ptr(uAttackerLaserColor)))
+      program.set("uAttackerLaserColor", uAttackerLaserColor);
+    if (ImGui::ColorEdit3("Attacker Laser Core Color",
+                          value_ptr(uAttackerLaserCoreColor)))
+      program.set("uAttackerLaserCoreColor", uAttackerLaserCoreColor);
+    if (ImGui::SliderFloat("Attacker Laser Glow Radius",
+                           &uAttackerLaserGlowRadius, 0.5f, 200.0f, "%.2f",
+                           ImGuiSliderFlags_Logarithmic))
+      program.set("uAttackerLaserGlowRadius", uAttackerLaserGlowRadius);
+    if (ImGui::SliderFloat("Attacker Laser Glow Intensity",
+                           &uAttackerLaserGlowIntensity, 0.0f, 4.0f))
+      program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
     ImGui::SeparatorText("Audio");
     if (!audio.isAvailable()) {
       ImGui::TextColored(ImVec4(1, 0, 0, 1), "Audio unavailable");

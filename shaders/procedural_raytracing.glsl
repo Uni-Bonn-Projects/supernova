@@ -8,6 +8,17 @@ const float attackerRadius = 2.5 / 2.0;
 const float moonRadius = 3474.0 / 2.0;
 const float earthRadius = 12756.0 / 2.0;
 const float earthMoonDist = 384400.0;
+const int attackerAmount = 13;
+const float attacker_distance_val = 400.0;
+
+vec3 attackerSpherePosition(int i, vec3 origin) {
+  float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
+  float radius_at_y = sqrt(1.0 - y * y);
+  float theta = float(i) * GOLDEN_ANGLE;
+  float x = cos(theta) * radius_at_y;
+  float z = sin(theta) * radius_at_y;
+  return origin + vec3(x, y, z) * attacker_distance_val;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// BACKGROUND //////////////////////////////////
@@ -87,20 +98,10 @@ RaytraceResult proceduralScene(
 ) {
   // if (u_attacker_active > 0.5) {
   if (true) {
-    const int attackerAmount = 13;
-    const float attacker_distance_val = 400.0;
     vec3 attacker_origin = u_attacker_pos;
 
     for (int i = 0; i < attackerAmount; i++) {
-      // pos calced based on fibonacci sphere sampling
-      float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
-      float radius_at_y = sqrt(1.0 - y * y);
-      float theta = float(i) * GOLDEN_ANGLE;
-      float x = cos(theta) * radius_at_y;
-      float z = sin(theta) * radius_at_y;
-      vec3 attacker_vec = vec3(x, y, z) * attacker_distance_val;
-
-      vec3 attackerPos = attacker_origin + attacker_vec;
+      vec3 attackerPos = attackerSpherePosition(i, attacker_origin);
       float distance = proceduralSphere(
           rayOrigin,
           rayDir,
