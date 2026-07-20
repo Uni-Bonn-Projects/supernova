@@ -103,3 +103,18 @@ alles um ein Faktor 1000 geschrumpft.
 Bevor Florian und Noah dann richtig angefangen haben am Projekt zu arbeiten,
 habe ich noch die Angreifer, einfache, algorithmisch erzeugte Kugeln, erstellt.
 
+## Exkurs: Multifile Shaders
+
+Irgendwann wurde der Code dann im Fragment Shader immer mehr, wodurch man die
+Übersicht verlor. Daher habe ich versucht, den Shader in mehere Dateien via
+`#include` Instruktionen aufzuteilen. Leider gibt es im Framework irgendeinen Bug,
+wodurch beim verändern der Shaderdateien (kein C++ Code!) und Kompilieren des Projektes
+entweder dutzende Makros fehlschlagen oder vergessen wird, dass die glm Bibliothek
+heruntergeladen wurde. Der einzige Fix dafür war es den build Ordner zu löschen
+und alles noch mal neu zu kompilieren.
+
+Damit ich, und mein Team, das nicht jedes mal machen mussten habe ich meinen
+eigenen kleinen Shader preprocessor geschrieben, der einfach nur die ganzen
+`#include`'s auflöst und das Resultat an den Shader Compiler vom Framework
+weitergibt.
+
