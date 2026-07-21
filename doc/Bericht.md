@@ -249,3 +249,8 @@ ganze so aus:
 
 Die Artefakte die man an den Seiten der Sektionen sieht, kommen vom Shadow
 Mapping und haben nichts mit der Implemention der Booleschen Geometrie zu tun.
+
+### Nutzung von KI
+
+Zur Recherche und dem Prototyping von Lösung habe ich unter anderem KI benutzt.
+Die Finalen Ergebnisse wurden jedoch zu 90% von mir programmiert.
