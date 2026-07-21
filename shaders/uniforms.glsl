@@ -48,6 +48,8 @@ uniform float uLaserGlowIntensity = 1.0;
 uniform int uAttackerAliveMask = 0x1FFF; // deps: procedural_raytracing
 // Pivot the swarm formation is rotated around
 uniform vec3 uAttackerSwarmPivot = vec3(0.0); // deps: procedural_raytracing
+// Moon on/off; can be toggled to make the moon vanish - deps: procedural_raytracing
+uniform bool uMoonActive = true;
 
 // attacker swarm fire (small red/orange lasers converging on oldman) - deps: raytracing
 uniform bool uAttackerLaserActive = false;

@@ -30,8 +30,13 @@ public:
   void stopMusic();
   void setMusicVolume(float volume);
 
-  /** Fire-and-forget sound effect; the engine manages its own lifetime. */
+  /** Fire-and-forget sound effect; the engine manages its own lifetime.
+   * Routed through a dedicated SFX group so its volume can be set
+   * independently of the music via setSFXVolume(). */
   void playSFX(const std::string &path);
+  /** Sets the volume of all SFX (1.0 = unchanged, 0.0 = muted, >1 boosts).
+   * Independent of the music volume. */
+  void setSFXVolume(float volume);
 
   /** Schedules `action` to run once when the timeline reaches `time`. */
   void schedule(float time, std::function<void()> action);
@@ -46,7 +51,9 @@ public:
 private:
   ma_engine _engine{};
   ma_sound _music{};
+  ma_sound_group _sfxGroup{}; // all SFX mix through here for a shared volume
   bool _available = false;
   bool _musicLoaded = false;
+  bool _sfxGroupInit = false;
   std::vector<TimedAudioEvent> _schedule;
 };

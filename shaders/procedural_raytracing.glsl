@@ -132,9 +132,10 @@ RaytraceResult proceduralScene(
     }
   }
 
-  // moon
+  // moon (gated so it can be made to disappear; moonPos stays declared
+  // because earth is positioned relative to it below)
   vec3 moonPos = xInDir(10000, vec3(-1, -1, -1));
-  {
+  if (uMoonActive) {
     float distance = proceduralSphere(rayOrigin, rayDir, moonPos, moonRadius);
     if (distance < result.distance) {
       result.hitPos = rayOrigin + distance * rayDir;
