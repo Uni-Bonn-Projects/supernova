@@ -89,7 +89,7 @@ Hoch- und Runterfliegen)
 
 Das Resultat zu diesem Zeitpunkt sah so aus:
 
-![](./raymarching_oldman.png)
+![](./img/raymarching_oldman.png)
 
 Rückblickend waren die 12 Sektionen nicht weit genug draußen. (Man kann hier
 nur die ersten 25km von denen sehen)
