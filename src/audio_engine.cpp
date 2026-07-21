@@ -7,7 +7,18 @@ bool AudioEngine::init() {
   _available = result == MA_SUCCESS;
   if (!_available) {
     std::cerr << "Audio engine init failed: " << result << "\n";
+    return _available;
   }
+
+  // Dedicated mixer node for all SFX, so their volume can be controlled
+  // separately from the music. If it fails, SFX just fall back to routing
+  // straight to the engine endpoint (see playSFX).
+  if (ma_sound_group_init(&_engine, 0, NULL, &_sfxGroup) == MA_SUCCESS) {
+    _sfxGroupInit = true;
+  } else {
+    std::cerr << "SFX group init failed; SFX volume control disabled\n";
+  }
+
   return _available;
 }
 
@@ -17,6 +28,10 @@ void AudioEngine::shutdown() {
   if (_musicLoaded) {
     ma_sound_uninit(&_music);
     _musicLoaded = false;
+  }
+  if (_sfxGroupInit) {
+    ma_sound_group_uninit(&_sfxGroup);
+    _sfxGroupInit = false;
   }
   ma_engine_uninit(&_engine);
   _available = false;
@@ -54,10 +69,18 @@ void AudioEngine::setMusicVolume(float volume) {
 void AudioEngine::playSFX(const std::string &path) {
   if (!_available)
     return;
-  ma_result result = ma_engine_play_sound(&_engine, path.c_str(), NULL);
+  // Route through the SFX group when available so setSFXVolume() applies;
+  // otherwise play straight to the engine endpoint (full volume).
+  ma_node *node = _sfxGroupInit ? (ma_node *)&_sfxGroup : NULL;
+  ma_result result = ma_engine_play_sound_ex(&_engine, path.c_str(), node, 0);
   if (result != MA_SUCCESS) {
     std::cerr << "Failed to play SFX '" << path << "': " << result << "\n";
   }
+}
+
+void AudioEngine::setSFXVolume(float volume) {
+  if (_sfxGroupInit)
+    ma_sound_group_set_volume(&_sfxGroup, volume);
 }
 
 void AudioEngine::schedule(float time, std::function<void()> action) {

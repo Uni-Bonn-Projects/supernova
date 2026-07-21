@@ -8,6 +8,27 @@ const float attackerRadius = 2.5 / 2.0;
 const float moonRadius = 3474.0 / 2.0;
 const float earthRadius = 12756.0 / 2.0;
 const float earthMoonDist = 384400.0;
+const int attackerAmount = 13;
+const float attacker_distance_val = 400.0;
+
+// Spreads the swarm around oldman by rotating each attacker's own anchor
+// around a fixed pivot. Index 6 gets angle 0 so its position is unchanged
+vec3 attackerSwarmAnchor(int i, vec3 origin) {
+  float angleDeg = float(i - 6) * (360.0 / float(attackerAmount));
+  vec3 relativeToPivot = origin - uAttackerSwarmPivot;
+  return uAttackerSwarmPivot + rotateY(relativeToPivot, degToRad(angleDeg));
+}
+
+bool attackerAlive(int i) { return (uAttackerAliveMask & (1 << i)) != 0; }
+
+vec3 attackerSpherePosition(int i, vec3 origin) {
+  float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
+  float radius_at_y = sqrt(1.0 - y * y);
+  float theta = float(i) * GOLDEN_ANGLE;
+  float x = cos(theta) * radius_at_y;
+  float z = sin(theta) * radius_at_y;
+  return attackerSwarmAnchor(i, origin) + vec3(x, y, z) * attacker_distance_val;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// BACKGROUND //////////////////////////////////
@@ -29,7 +50,7 @@ vec3 proceduralStars(vec3 rayDir) {
 }
 
 vec3 proceduralSun(vec3 rayDir) {
-  return vec3(pow(max(0.0, dot(rayDir, uLightDir)), 1000));
+  return vec3(pow(max(0.0, dot(rayDir, uLightDir)), uSunSize));
 }
 
 vec3 proceduralSky(vec3 rayDir) {
@@ -87,20 +108,14 @@ RaytraceResult proceduralScene(
 ) {
   // if (u_attacker_active > 0.5) {
   if (true) {
-    const int attackerAmount = 13;
-    const float attacker_distance_val = 400.0;
     vec3 attacker_origin = u_attacker_pos;
 
     for (int i = 0; i < attackerAmount; i++) {
-      // pos calced based on fibonacci sphere sampling
-      float y = 1.0 - (float(i) / float(attackerAmount - 1)) * 2.0;
-      float radius_at_y = sqrt(1.0 - y * y);
-      float theta = float(i) * GOLDEN_ANGLE;
-      float x = cos(theta) * radius_at_y;
-      float z = sin(theta) * radius_at_y;
-      vec3 attacker_vec = vec3(x, y, z) * attacker_distance_val;
-
-      vec3 attackerPos = attacker_origin + attacker_vec;
+      // destroyed attackers stop rendering (and stop casting shadows)
+      if (!attackerAlive(i)) {
+        continue;
+      }
+      vec3 attackerPos = attackerSpherePosition(i, attacker_origin);
       float distance = proceduralSphere(
           rayOrigin,
           rayDir,
@@ -117,9 +132,10 @@ RaytraceResult proceduralScene(
     }
   }
 
-  // moon
+  // moon (gated so it can be made to disappear; moonPos stays declared
+  // because earth is positioned relative to it below)
   vec3 moonPos = xInDir(10000, vec3(-1, -1, -1));
-  {
+  if (uMoonActive) {
     float distance = proceduralSphere(rayOrigin, rayDir, moonPos, moonRadius);
     if (distance < result.distance) {
       result.hitPos = rayOrigin + distance * rayDir;

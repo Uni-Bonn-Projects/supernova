@@ -32,11 +32,17 @@ vec3 renderAt(vec2 ndc, vec2 offset, vec3 rayDir, vec3 x, vec3 y) {
   float hitDistance;
   color = raytrace(shiftedEye, shiftedRayDir, color, hitDistance);
 
-  // Volumetric halo of the laser, alpha-blended over the scene (glows
-  // against sky and geometry, occluded by whatever the primary ray hit
-  // first)
+  // Volumetric halo of the laser, alpha-blended over the scene
   vec4 glow = laserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
   color = mix(color, glow.rgb, glow.a);
+
+  // Attacker swarm's return fire, composited the same way
+  vec4 attackerGlow = attackerLaserGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
+  color = mix(color, attackerGlow.rgb, attackerGlow.a);
+
+  // Oldman's green return fire, same again
+  vec4 oldmanBeams = oldmanBeamGlow(shiftedEye, shiftedRayDir, min(hitDistance, uFar));
+  color = mix(color, oldmanBeams.rgb, oldmanBeams.a);
 
   return color;
 }

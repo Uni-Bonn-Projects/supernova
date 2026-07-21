@@ -150,18 +150,20 @@ void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
 
   _particles.update(delta_time);
 
-  if (camera_changed) {
-    mat4 VP = camera.projectionMatrix * camera.viewMatrix;
-    vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
-                         camera.viewMatrix[2][0]};
-    vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
-                      camera.viewMatrix[2][1]};
-    _program.set("viewProjection", VP);
-    _program.set("cameraRight", camera_right);
-    _program.set("cameraUp", camera_up);
-  }
+  // Set the billboard basis + view-projection every frame: during a static
+  // cinematic hold the camera doesn't report as "changed", but an explosion
+  // spawned then must still be billboarded with a valid matrix.
+  mat4 VP = camera.projectionMatrix * camera.viewMatrix;
+  vec3 camera_right = {camera.viewMatrix[0][0], camera.viewMatrix[1][0],
+                       camera.viewMatrix[2][0]};
+  vec3 camera_up = {camera.viewMatrix[0][1], camera.viewMatrix[1][1],
+                    camera.viewMatrix[2][1]};
+  _program.set("viewProjection", VP);
+  _program.set("cameraRight", camera_right);
+  _program.set("cameraUp", camera_up);
+  (void)camera_changed;
 
-  _program.set("particleRadius", _particles.RADIUS);
+  _program.set("particleRadius", _particles.current_radius);
 
   // update offsets buffer
   glBindBuffer(GL_ARRAY_BUFFER, _offsetVBO);
@@ -170,18 +172,26 @@ void Explosions::render(Camera &camera, float delta_time, bool camera_changed) {
   _mesh.draw(_particles.AMOUNT);
 }
 
-void Explosions::spawn(const glm::vec3 &center, float duration) {
+void Explosions::spawn(const glm::vec3 &center, float duration, float size) {
+  // size <= 0: legacy point-blank burst (slow drift, tiny billboards).
+  // size > 0: scale the outward speed so particles spread to ~`size` over the
+  // burst, and enlarge the billboards to match, so the blast reads from far.
+  bool scaled = size > 0.0f;
+  float maxSpeed = scaled ? size / duration : 0.5f;
+
   for (int i = 0; i < 10'000; i++) {
     vec3 dir = vec3(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2,
                     rand() - RAND_MAX / 2);
 
-    _particles.add(center, normalize(dir) * 0.5f * ((float)rand() / RAND_MAX),
+    _particles.add(center,
+                   normalize(dir) * maxSpeed * ((float)rand() / RAND_MAX),
                    duration);
   }
+
+  _particles.current_radius = scaled ? size * 0.06f : _particles.RADIUS;
 }
 
 bool Explosions::isActive(void) {
-  return false;
   for (int i = 0; i < _particles.AMOUNT; i++) {
     if (_particles.alive_prob[i] > 0.0f)
       return true;
