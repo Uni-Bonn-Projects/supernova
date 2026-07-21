@@ -79,6 +79,8 @@ struct MainApp : public App {
 
     uAttackerAliveMask = kAliveMaskAll;
     program.set("uAttackerAliveMask", uAttackerAliveMask);
+    uMoonActive = true;
+    program.set("uMoonActive", uMoonActive);
     uOldmanBeamActive = false;
     program.set("uOldmanBeamActive", uOldmanBeamActive);
     uOldmanBeamTargets = ivec3(-1);
@@ -123,6 +125,7 @@ struct MainApp : public App {
 
   float uSunSize = 1000.0f;
 
+  float kSFXVolume = 1.25f;
   // Offset from fightPos to the top of the oldman mesh (top_dome is a
   // radius-100 sphere centered on the mesh's own origin, see oldman.cpp),
   // i.e. roughly the muzzle the laser fires from.
@@ -163,6 +166,7 @@ struct MainApp : public App {
 
   int uAttackerAliveMask = kAliveMaskAll;
   vec3 uAttackerSwarmPivot = fightPos;
+  bool uMoonActive = true; // toggled off to make the moon vanish
 
   // oldman's green return fire (up to 3 beams, targets given as indices)
   bool uOldmanBeamActive = false;
@@ -292,6 +296,14 @@ struct MainApp : public App {
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
+    // The framework Camera's default far plane is only 100 units, but this
+    // scene is km-scale (objects thousands of units away). The raytracer has
+    // its own uFar and ignores camera.projectionMatrix, so it's unaffected -
+    // but the explosion billboards DO project through projectionMatrix, so
+    // with the default far plane every distant blast is clipped away and
+    // never drawn. Widen the frustum to match the scene so they're visible.
+    camera.near = 1.0f;
+    camera.far = 1'000'000.0f;
 
     // register objects
     assetManager.registerObject("oldman");
@@ -454,12 +466,15 @@ struct MainApp : public App {
         {0.0f, attackDuration,
          [this]() { updateOldmanAttack(currentSceneTime); }});
 
-    // one explosion + SFX per kill, fired the frame that attacker dies
+    // one explosion + SFX per kill, fired the frame that attacker dies. A
+    // short, large burst so it reads from the ~1.8km-away duel camera (the
+    // default point-blank size would be sub-pixel at that range).
     for (const auto &run : attackRuns) {
       int index = run.attackerIndex;
       old_man_attacks.oneShotEvents.push_back(
           {run.killTime, [this, index]() {
-             explosions.spawn(attackerWorldPos(index, attackerSwarmPos), 10.0);
+             explosions.spawn(attackerWorldPos(index, attackerSwarmPos), 2.0f,
+                              120.0f);
              audio.playSFX("src/audio/explosion.wav");
            }});
     }
@@ -483,6 +498,38 @@ struct MainApp : public App {
            program.set("uSunSize", uSunSize);
          }});
 
+    Scene linearSpace2;
+    linearSpace2.name = "LinearSpace2";
+    // Static shot (placeholder framing - mirrors the first LinearSpace shot).
+    vec3 linSpace2CamPos = fightPos + vec3(800.0f, 0.0f, 0.0f);
+    linearSpace2.director.holdAt(linSpace2CamPos, fightPos, 6.0f);
+
+    // Linear-space look, on for this scene only. Paired onInactive turns it
+    // back off when the scene ends, otherwise it would bleed into the
+    // supernova shot that follows (which needs the procedural sky/sun to show
+    // its shrinking sun, not the linear-space sky).
+    linearSpace2.windowEvents.push_back(
+        {0.0f, 6.0f,
+         [this]() {
+           uInLinearSpace = true;
+           program.set("uInLinearSpace", uInLinearSpace);
+         },
+         [this]() {
+           uInLinearSpace = false;
+           program.set("uInLinearSpace", uInLinearSpace);
+         }});
+
+    // Instantly despawn every remaining attacker (alive mask -> 0) and the
+    // moon. No onInactive: they stay gone through the rest of playback;
+    // resetTimeline() restores both for the next run.
+    linearSpace2.windowEvents.push_back(
+        {0.0f, 6.0f, [this]() {
+           uAttackerAliveMask = 0;
+           program.set("uAttackerAliveMask", uAttackerAliveMask);
+           uMoonActive = false;
+           program.set("uMoonActive", uMoonActive);
+         }});
+
     scenes.push_back(linearSpace);
     scenes.push_back(Laser);
     // recorded so the explosion SFX below can be offset onto the global clock
@@ -491,7 +538,7 @@ struct MainApp : public App {
     scenes.push_back(kampf);
     scenes.push_back(POV);
     scenes.push_back(old_man_attacks);
-    // scenes.push_back(linearSpace); TODO: uncomment
+    scenes.push_back(linearSpace2);
     scenes.push_back(supernova);
 
     // Audio: an underlying score loops for the whole cinematic, and sound
@@ -501,7 +548,8 @@ struct MainApp : public App {
     // sceneStartTime() here to land on the same global instant even if
     // other scenes end up chained in front of Kampf later.
     audio.init();
-    audio.playMusic("src/audio/Soundtrack.wav", 0.5f);
+    audio.playMusic("src/audio/Soundtrack.wav", 0.35f);
+    audio.setSFXVolume(kSFXVolume);
     audio.scheduleSFX(sceneStartTime(kampfSceneIndex) + kAttackExplosionTime,
                       "src/audio/explosion.wav");
 
@@ -537,6 +585,7 @@ struct MainApp : public App {
     program.set("uAttackerLaserGlowIntensity", uAttackerLaserGlowIntensity);
     program.set("uAttackerAliveMask", uAttackerAliveMask);
     program.set("uAttackerSwarmPivot", uAttackerSwarmPivot);
+    program.set("uMoonActive", uMoonActive);
     program.set("uOldmanBeamActive", uOldmanBeamActive);
     program.set("uOldmanBeamStart", uOldmanBeamStart);
     program.set("uOldmanBeamTargets", uOldmanBeamTargets);

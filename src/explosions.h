@@ -9,6 +9,12 @@ namespace sn {
 struct Particles {
   static const unsigned int AMOUNT = 100'000;
   const float RADIUS = 0.005f;
+  // Billboard radius actually used for the most recent burst. Defaults to the
+  // tiny point-blank RADIUS but is scaled up by Explosions::spawn() for
+  // far-away blasts so they don't render sub-pixel. Shared across concurrent
+  // explosions, which is fine here: overlapping bursts in the cinematic are
+  // always the same size.
+  float current_radius = RADIUS;
   unsigned int _last_unused = 0; // the last return value of get_unused
 
   vec3 pos[AMOUNT];
@@ -35,7 +41,10 @@ class Explosions {
 public:
   void init(void);
   void render(Camera &camera, float delta_time, bool camera_changed);
-  void spawn(const glm::vec3 &center, float duration);
+  // `size` <= 0 keeps the original small point-blank burst; a positive value
+  // is the approximate world-space radius of the cloud (billboards are scaled
+  // proportionally), so a distant explosion can be made large enough to see.
+  void spawn(const glm::vec3 &center, float duration, float size = 0.0f);
   bool isActive(void);
 
 private:
