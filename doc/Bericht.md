@@ -168,3 +168,42 @@ folgt aus:
 
 ![](./img/final_explosions.png)
 
+### Der große Rewrite zum Raytracing
+
+Ich hatte während der ganzen Zeit das Gefühl, dass meine Implemenierung der
+Booleschen Geometrie ungenügend war. Immerhin gab dieses Feature einem 60 Punkte!
+Für meine Implementation ca 8 Punkte pro Zeile! Daher habe ich eine Email
+geschrieben und tatsächlich: Meine Implementation war ungenügend. Also habe ich
+mich für ein Abend drangesetzt und all den Raymarching code zu Raytracing
+umgeschrieben.
+
+Eine große Hilfe war hierbei der Code von Aufgabe 4b, da die grundlegenden Dinge
+hier schon implementiert waren. Danach musste ich jedoch all den alten Code
+rüberportieren, was glücklicherweise zum großteil copy-paste war.
+
+Als erstes implementierte ich hierbei die algorithmisch erzeugte Geometrie. Um
+genauer zu sein, nur die Kugeln, da wir nur Raumschiffe und Himmelskörper
+generieren. Da die Geometrie recht leicht ist, ist auch die Schnittpunktberechnung
+relativ kurz, wobei ich hier ein paar Versuche gebraucht hatte, bis alles richtig
+aussah.
+
+Die Boolesche Geometrie habe ich mir dann aber für später aufgehoben, da der
+Abend schon langsam spät wurde und ich erstmal den Port fertig kriegen wollte.
+Stattdessen habe ich eine einfache, aus Dreiecken bestehende Kugel statt dem
+OLDMAN rendern lassen, sodass Florian und Noah schomal etwas hatten womit sie
+arbeiten konnten.
+
+Danach habe ich Stück für Stück den alten Code in den neuen integriert und dabei
+auch ein wenig aufgeräumt. Traurigerweise, für Noah, musste die bereits gegebene
+Shadow Mapping Logik später nochmal überarbeitet werden, damit Schatten von
+Meshes auf algorithmisch erzeugte Geometrie, und anders rum, geworfen werden
+können. Den Code für den großen blauen Laser habe ich aus Zeitgründen auch nicht
+portiert.
+
+Das Ergebnis zu diesem Zeitpunkt sah dann wie folgt aus.
+
+![](./img/raytracing_rewrite.png)
+
+In der Mitte den OLDMAN Placeholder, links den Mond und oben in der Mitte und
+unten rechts ganz klein zwei Angreifer.
+
