@@ -43,7 +43,7 @@ Da ich als erstes Zeit gefunden hatte um mit dem Projekt anzufangen, habe ich
 zuerst unsere ganze Devumgebung erstellt. Darunter zählt:
 - das repository erstellen
 - via [devenv](https://devenv.sh/) alle Abhängigkeiten und Skripts definieren,
-damit ich und meine Gruppen alles gleich installiert haben
+damit ich und meine Gruppe alles gleich installiert haben
 - den Code von Aufgabe 4a kopieren
 - und die README erstellen, damit mein Team weiß wie man devenv benutzt
 
@@ -68,7 +68,7 @@ es relativ schwer werden würde zu implementieren, jedoch habe ich nach kurzer
 Google suche folgende Webseite gefunden: <https://iquilezles.org/articles/distfunctions/>
 
 Nachdem ich die folgenden 8 relevanten Zeilen kopiert hatte, konnte ich den
-OLDMAN (das 200km große Raumschiff aus den Perry Rhodan büchern) recht leicht
+OLDMAN (das 200km große Raumschiff aus den Perry Rhodan Büchern) recht leicht
 zusammenbauen und rendern:
 
 ```glsl
@@ -122,16 +122,21 @@ weitergibt.
 
 Nach diesem kleinem Exkurs habe ich noch die Erde und den Mond erstellt (wieder
 algorithmisch erzeugte Kugeln) und sowohl den Stern- als auch Linearraumhintergrund
-(das bunte Wabern) programmiert.
+(das bunte Wabern) programmiert. Letzteres benutzt eine mehrfach gestaffelte
+Perlin Noise Funktion welche ich (mit Lizenz) importiert hatte.
 
 Erde und Mond mit Sternenhintergrund:
 
 ![](./img/earth_moon_star_background.png)
 
 Bei der Bewegung der Kamera flackern die Sterne ein bisschen, jedoch konnte ich
-das nie fixen ohne ein statisches Bild in die Skybox zu laden.
+das nie fixen ohne ein statisches Bild in die Skybox zu laden. Grund dafür ist,
+dass ich die `rayDir`'s auf Integer runden muss, damit ich eine Hashfunktion
+benutzen kann, ohne dass sich der Sternenhimmel bei jeder Bewegung komplett
+verändert.
 
-Linearraumhintergrund. Hier leider nur ein statisches Bild davon:
+Linearraumhintergrund. Hier leider nur ein statisches Bild davon. Im Programm
+wabert dieser förmlich:
 
 ![](./img/linear_space.png)
 
@@ -148,12 +153,13 @@ implementiert. Folgender Artikel hat dabei meine Implemention sehr stark inspiri
 Damit ich mich aber erstmal aufs wesentliche konzentrieren konnte, habe ich erst
 eine minimale Version, ohne OLDMAN und was auch immer wir schon gemacht hatten,
 erstellt. In dieser konnte ich dann, via Instanzierung und Offsets in einem
-`GL_ARRAY_BUFFER` folgende Explosionen implementieren.
+`GL_ARRAY_BUFFER` folgende Explosionen implementieren. Die Partikel sind hierbei
+auch gebillboarded, damit man auch wirklich alle jederzeit sieht.
 
 ![](./img/early_explosions.png)
 
 Dies ist aber nur ein Standbild von Partikeln, welche in der Mitte spawnen und
-sich gleichmäßig nach außen ausbreiten, bis sie despawnen. Die Explosion ist
+sich gleichmäßig nach außen ausbreiten, bis sie despawnen. Die Explosion ist hier
 zudem auch gestreckt, was später in der Integrierung, ohne mein zutun, weging.
 
 Wie man sich bestimmt denken kann habe ich dann diese minimale Version, in Form
@@ -175,7 +181,9 @@ Booleschen Geometrie ungenügend war. Immerhin gab dieses Feature einem 60 Punkt
 Für meine Implementation ca 8 Punkte pro Zeile! Daher habe ich eine Email
 geschrieben und tatsächlich: Meine Implementation war ungenügend. Also habe ich
 mich für ein Abend drangesetzt und all den Raymarching code zu Raytracing
-umgeschrieben.
+umgeschrieben. (Der Rewrite war nötig, da vernünfige Boolesche Geometrie zwei
+Meshes miteinander Addiert, Subthrahiert usw. Und dies ging mit Raytracing
+wesentlich leichter und Performanter als mit Raymarching)
 
 Eine große Hilfe war hierbei der Code von Aufgabe 4b, da die grundlegenden Dinge
 hier schon implementiert waren. Danach musste ich jedoch all den alten Code
@@ -183,9 +191,9 @@ rüberportieren, was glücklicherweise zum großteil copy-paste war.
 
 Als erstes implementierte ich hierbei die algorithmisch erzeugte Geometrie. Um
 genauer zu sein, nur die Kugeln, da wir nur Raumschiffe und Himmelskörper
-generieren. Da die Geometrie recht leicht ist, ist auch die Schnittpunktberechnung
+generieren. Da deren Geometrie recht leicht ist, ist auch die Schnittpunktberechnung
 relativ kurz, wobei ich hier ein paar Versuche gebraucht hatte, bis alles richtig
-aussah.
+aussah. Meistens lag es an irgendwelchen Vorzeichen.
 
 Die Boolesche Geometrie habe ich mir dann aber für später aufgehoben, da der
 Abend schon langsam spät wurde und ich erstmal den Port fertig kriegen wollte.
@@ -197,15 +205,15 @@ Danach habe ich Stück für Stück den alten Code in den neuen integriert und da
 auch ein wenig aufgeräumt. Traurigerweise, für Noah, musste die bereits gegebene
 Shadow Mapping Logik später nochmal überarbeitet werden, damit Schatten von
 Meshes auf algorithmisch erzeugte Geometrie, und anders rum, geworfen werden
-können. Den Code für den großen blauen Laser habe ich aus Zeitgründen auch nicht
-portiert.
+konnten. Den Code für den großen blauen Laser habe ich aus Zeitgründen auch nicht
+portieren können.
 
 Das Ergebnis zu diesem Zeitpunkt sah dann wie folgt aus.
 
 ![](./img/raytracing_rewrite.png)
 
-In der Mitte den OLDMAN Placeholder, links den Mond und oben in der Mitte und
-unten rechts ganz klein zwei Angreifer.
+In der Mitte den OLDMAN Placeholder, links den Mond und ganz klein oben in der
+Mitte und unten rechts zwei Angreifer.
 
 ### Boolesche Geometrie
 
@@ -216,31 +224,40 @@ Ersteinmal habe ich jedoch, wie üblich, nachrecherchiert und ein paar viele
 Methoden zur Boolesche Geometrie mit Meshes, oder auch Constructive Solid
 Geometry (CSG) gennant, gefunden. Entschieden habe ich mich aber für den Ansatz
 mit den Intervallen. Im Prinzip, das was [hier](https://www.reddit.com/r/opengl/comments/djve71/how_to_create_cuttedhollow_objects_using_ray/)
-beschrieben wird. Der Grund warum ich mich hierfür entschieden hab, war, dass
-ich nicht nochmal alles umschreiben wollte, was ich bei der [z-Buffer Methode](http://www.nigels.com/research/egsggh98.pdf)
+beschrieben wird. Der Grund warum ich mich dafür entschieden hab, war, dass
+ich nicht nochmal alles umschreiben wollte, was ich z.B bei der [z-Buffer Methode](http://www.nigels.com/research/egsggh98.pdf)
 hätte tun müssen.
 
-Da der OLDMAN aus 15 Meshes (inkl. der Meshes die andere subthraieren) besteht
+Da der OLDMAN aus 15 Meshes (inkl. der Meshes, die andere subthraieren) besteht
 und ich nicht 3 Uniforms pro Mesh erstellen wollte, was im Code der Aufgabe 4b
 getan wurde, habe ich erstmal mein eigenes Mesh Struct `SNMesh` erstellt, welches
-ich zwischen C++ und den GLSL Shadern via einem Buffer teilen konnte. Dies hat
-ein wenig länger gedauert, da ich recht oft auf Alignment Probleme gestoßen bin,
-welche jedes mal mein Window Manager / die Grafikarte hard resetted haben. Auch
-hat das Framework hier immer mal wieder vergessen, dass die glm Bibliothek
-installiert war, weswegen ich recht oft den build Ordner löschen und alles
-nochmal neu kompilieren musste.
+ich zwischen C++ und den GLSL Shadern via einem Buffer teilen konnte. `SNMesh`
+hat zudem auch ein paar Methoden bekommen, mit denen man das Mesh Skalieren,
+Positionieren und Rotieren kann. Das ganze hat jedoch ein wenig länger gedauert,
+da ich recht oft auf Alignment Probleme gestoßen bin, welche jedes mal mein
+Window Manager / die Grafikarte hard resetted haben, weil der Shader irgendeinen
+Speicher ließt, der verboten ist. Auch hat das Framework hier immer mal wieder
+vergessen, dass die glm Bibliothek installiert war, weswegen ich recht oft den
+build Ordner löschen und alles nochmal neu kompilieren musste. Der fix war am
+Ende ein `alignas(16)` Statement im Struct und die Benutzung von vec4 statt vec3,
+da erstere 16 Byte statt 12 Byte groß sind. Mit vec3 hätte ich sonst die Arrays
+manuell puffern müssen.
 
 Als ich diese Hürde dann aber überstanden habe konnte ich endlich mit dem OLDMAN
 anfangen. Zu allererst habe ich hierfür noch ein Struct für den OLDMAN erstellt,
 welches dann alle nötigen `SNMesh`'s enthielt. Dieses Struct habe ich dann
-ebenfalls via Buffer mit dem Shader geteilt.
+ebenfalls via Buffer mit dem Shader geteilt. Die enthaltenen `SNMesh`'s wurden
+bei der Initialisierung dann direkt richtig Skaliert, Positioniert und Rotiert,
+sodass ich mich im späteren CSG Code nurnoch um die Subthraktionen, Additionen usw.
+kümmern musste.
 
 Danach habe ich die Interval-Methode in den Shadern implementiert. Hier habe ich
 jedoch etwas neues über GLSL gelernt: Man kann Daten nicht referenzieren. Das
 hatte zur Folge, dass jedesmal wenn ich ein Mesh über die Funktionsparameter
 übergeben hatte oder ich das Mesh in einer lokalen Variable zwischenspeicherte,
 der GPU mehr als 4 kb kopiert hat, ein Memory overflow hatte und mein Window
-Manager zum Hard Reset der Grafikkarte zwang.
+Manager zum Hard Reset der Grafikkarte zwang. Die Lösung hier war es indices in
+den Buffer zu übergeben, sodass die Funktion sich dann die Werte selber holt.
 
 Nachdem ich aber all dies und noch ein paar andere Fehler gefixt hatte sah das
 ganze so aus:
