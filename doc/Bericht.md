@@ -122,8 +122,9 @@ weitergibt.
 
 Nach diesem kleinem Exkurs habe ich noch die Erde und den Mond erstellt (wieder
 algorithmisch erzeugte Kugeln) und sowohl den Stern- als auch Linearraumhintergrund
-(das bunte Wabern) programmiert. Letzteres benutzt eine mehrfach gestaffelte
-Perlin Noise Funktion welche ich (mit Lizenz) importiert hatte.
+(das bunte Wabern welches ebenfalls aus den Perry Rhodan Büchern inspiriert ist)
+programmiert. Letzteres benutzt eine mehrfach gestaffelte Perlin Noise Funktion
+welche ich (mit Lizenz) importiert hatte.
 
 Erde und Mond mit Sternenhintergrund:
 
