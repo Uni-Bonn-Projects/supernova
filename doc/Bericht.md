@@ -207,3 +207,45 @@ Das Ergebnis zu diesem Zeitpunkt sah dann wie folgt aus.
 In der Mitte den OLDMAN Placeholder, links den Mond und oben in der Mitte und
 unten rechts ganz klein zwei Angreifer.
 
+### Boolesche Geometrie
+
+[Meine Einschätzung](./idee/supernova.excalidraw.png) hat sich somit nun doch
+bewahrheitet: Boolesche Geometrie ist mein schwerstes Feature.
+
+Ersteinmal habe ich jedoch, wie üblich, nachrecherchiert und ein paar viele
+Methoden zur Boolesche Geometrie mit Meshes, oder auch Constructive Solid
+Geometry (CSG) gennant, gefunden. Entschieden habe ich mich aber für den Ansatz
+mit den Intervallen. Im Prinzip, das was [hier](https://www.reddit.com/r/opengl/comments/djve71/how_to_create_cuttedhollow_objects_using_ray/)
+beschrieben wird. Der Grund warum ich mich hierfür entschieden hab, war, dass
+ich nicht nochmal alles umschreiben wollte, was ich bei der [z-Buffer Methode](http://www.nigels.com/research/egsggh98.pdf)
+hätte tun müssen.
+
+Da der OLDMAN aus 15 Meshes (inkl. der Meshes die andere subthraieren) besteht
+und ich nicht 3 Uniforms pro Mesh erstellen wollte, was im Code der Aufgabe 4b
+getan wurde, habe ich erstmal mein eigenes Mesh Struct `SNMesh` erstellt, welches
+ich zwischen C++ und den GLSL Shadern via einem Buffer teilen konnte. Dies hat
+ein wenig länger gedauert, da ich recht oft auf Alignment Probleme gestoßen bin,
+welche jedes mal mein Window Manager / die Grafikarte hard resetted haben. Auch
+hat das Framework hier immer mal wieder vergessen, dass die glm Bibliothek
+installiert war, weswegen ich recht oft den build Ordner löschen und alles
+nochmal neu kompilieren musste.
+
+Als ich diese Hürde dann aber überstanden habe konnte ich endlich mit dem OLDMAN
+anfangen. Zu allererst habe ich hierfür noch ein Struct für den OLDMAN erstellt,
+welches dann alle nötigen `SNMesh`'s enthielt. Dieses Struct habe ich dann
+ebenfalls via Buffer mit dem Shader geteilt.
+
+Danach habe ich die Interval-Methode in den Shadern implementiert. Hier habe ich
+jedoch etwas neues über GLSL gelernt: Man kann Daten nicht referenzieren. Das
+hatte zur Folge, dass jedesmal wenn ich ein Mesh über die Funktionsparameter
+übergeben hatte oder ich das Mesh in einer lokalen Variable zwischenspeicherte,
+der GPU mehr als 4 kb kopiert hat, ein Memory overflow hatte und mein Window
+Manager zum Hard Reset der Grafikkarte zwang.
+
+Nachdem ich aber all dies und noch ein paar andere Fehler gefixt hatte sah das
+ganze so aus:
+
+![](./img/csg_done.png)
+
+Die Artefakte die man an den Seiten der Sektionen sieht, kommen vom Shadow
+Mapping und haben nichts mit der Implemention der Booleschen Geometrie zu tun.
