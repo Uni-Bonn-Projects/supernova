@@ -614,7 +614,7 @@ struct MainApp : public App {
     oldman.move(1.0f, fightPos);
     oldman.update(program);
 
-    video_export.init("out.video", 800, 600, 30).start();
+    video_export.init("supernova.mp4", 800, 600, 30).start();
   }
 
   ~MainApp() override {
