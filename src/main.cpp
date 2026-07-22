@@ -23,6 +23,7 @@
 #include "multifile_shaders.h"
 #include "oldman.h"
 #include "snmesh.h"
+#include "video_export.h"
 
 #include "cinematic.cpp" // source file import?
 
@@ -46,6 +47,8 @@ struct MainApp : public App {
   int currentScene = 0;
   // Scene-local time of the frame currently being driven; see render().
   float currentSceneTime = 0.0f;
+
+  VideoExport video_export;
 
   // Sum of scenes[0..idx)'s durations - i.e. the global flight time at
   // which scenes[idx] starts playing.
@@ -610,9 +613,14 @@ struct MainApp : public App {
     // being filmed.
     oldman.move(1.0f, fightPos);
     oldman.update(program);
+
+    video_export.init("out.video", 800, 600, 30).start();
   }
 
-  ~MainApp() override { audio.shutdown(); }
+  ~MainApp() override {
+    audio.shutdown();
+    video_export.deinit();
+  }
 
   void render() override {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -735,6 +743,8 @@ struct MainApp : public App {
     // after every frame
     program.set("uApertureSize", uApertureSize);
     program.set("uFocusSamples", uFocusSamples);
+
+    video_export.update();
   }
 
   void buildImGui() override {

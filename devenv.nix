@@ -19,9 +19,11 @@ let
     wayland
     wayland-scanner
     # Used for audio
-    miniaudio 
+    miniaudio
     libpulseaudio
     alsa-lib
+    # used for video export
+    ffmpeg
   ];
 in
 {
