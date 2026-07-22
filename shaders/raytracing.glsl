@@ -99,10 +99,7 @@ vec3 raytrace(vec3 rayOrigin, vec3 rayDir, vec3 background_color, out float hitD
   return calcLighting(result);
 }
 
-/// Purely volumetric laser halo, there is no solid laser. Shared by the big
-/// blue oldman-to-sun laser (laserGlow()) and the attacker swarm's beams
-/// (attackerLaserGlow()) - only the geometry/style is parameterized here,
-/// the on/off gating stays per-caller since each has its own uniform.
+// Purely volumetricc laser halo
 vec4 laserSegmentGlow(vec3 ro, vec3 rd, float maxDepth, vec3 start, vec3 end,
                        float radius, vec3 color, vec3 coreColor,
                        float glowRadius, float glowIntensity, int steps) {
@@ -160,9 +157,7 @@ vec3 oldmanHitPoint(int i) {
   return uAttackerLaserTarget + vec3(x, y, z) * oldmanHitRadius;
 }
 
-/// Attacker swarm opening fire on oldman: one small beam per attacker
-/// sphere, each landing on a different part of the mesh, composited
-/// together.
+
 vec4 attackerLaserGlow(vec3 ro, vec3 rd, float maxDepth) {
   if (!uAttackerLaserActive) return vec4(0.0);
 
@@ -183,9 +178,7 @@ vec4 attackerLaserGlow(vec3 ro, vec3 rd, float maxDepth) {
   return accum;
 }
 
-/// Oldman firing back: up to 3 green beams, each locked onto one attacker
-/// sphere. Which spheres (and how many) is decided on the CPU side and passed
-/// in as indices via uOldmanBeamTargets, with -1 marking an unused slot.
+/// Oldman firing back: up to 3 green beams, each locked onto one attacker sphere. 
 vec4 oldmanBeamGlow(vec3 ro, vec3 rd, float maxDepth) {
   if (!uOldmanBeamActive) return vec4(0.0);
 

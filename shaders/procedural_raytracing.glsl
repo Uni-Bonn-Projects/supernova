@@ -12,7 +12,7 @@ const int attackerAmount = 13;
 const float attacker_distance_val = 400.0;
 
 // Spreads the swarm around oldman by rotating each attacker's own anchor
-// around a fixed pivot. Index 6 gets angle 0 so its position is unchanged
+// around a fixed pivot. Index 6 = 0 because POV shot was implemented before
 vec3 attackerSwarmAnchor(int i, vec3 origin) {
   float angleDeg = float(i - 6) * (360.0 / float(attackerAmount));
   vec3 relativeToPivot = origin - uAttackerSwarmPivot;
