@@ -337,3 +337,78 @@ Vorallem wenn man noch CSGs dazu benutzt und alle Werte in den Tausendern hat.
 
 Zur Recherche und dem Prototyping von Lösung habe ich unter anderem KI benutzt.
 Die Finalen Ergebnisse wurden jedoch zu 90% von mir programmiert.
+
+## Noah Neiseke
+
+Meine Themen waren: 
+1. Audio
+2. Shadow Mapping
+3. Volumetrisches Licht
+
+### Audio
+
+Da mir schon fast klar war, dass es im Internet Modules gibt die Audio für GLSL Projekte implementiert habe ich mit dieser Aufgabe begonnen. Nach kurzer Suche bin ich auf [Miniaudio](https://miniaud.io/docs/manual/) gestoßen. Da es sich hier um eine Single-Header-File handelt und auch die Dokumentation mir das Gefühl gegeben hat, dass ich keine großen Probleme haben werde Audio einzubinden habe ich mich für Miniaudio entschieden. Direkt am ersten Tag war ich auch schon in der Lage einen Backgroundtrack hinzuzufügen, da der Code dafür sehr simple ist. Nach einfügen des Headers und einer kleinen Wrapper Implemenation als "AudioEngine" muss man nur 
+```glsl
+AudioEngine audio;
+...
+audio.init();
+audio.playMusic("src/audio/Soundtrack.wav", 0.35f);
+```
+in main.cpp einfügen. `0.35f` ist hier die Lautstärke des Soundtracks. Der Soundtrack selbst kommt aus diesem Copyright Free [Youtube Video](https://www.youtube.com/watch?v=J0YZKSwe2qU). Runtergeladen hab ichs via meiner YouTube Premium Mitgliedschaft und dann einfach mit ffmpeg die Audio extrahiert. Da wir diesen nicht zu laut haben wollten hab ich es auf 35% gesetzt. Weitergehend wollten wir auch noch Explosionssounds haben. Hier habe ich leider keinen frei verfüglichen Effekt gefunden und musste daher recherchieren wie man sich selbst so einen Soundeffekt erstellen könnte. Ich kam also dazu irgendwie mit ffmpeg diesen Sound zusammenzubauen. Nach 10-15 unterschiedlichen Versuchen unterschiedliche Sounds zu produzieren kam leider kein befriedigendes Ergebnis zustande. Mir war aber zumindest klar, dass ffmpeg dafür reicht und Brown Noise ein guter Ansatz ist und somit auch meine Basis bilden sollte. Also suchte ich Hilfe bei KI-Tools. Nach einem kurzen Chat mit dem KI-Tool Claude wurde mir dieser Befehl vorgeschlagen:
+```bash
+ffmpeg -f lavfi -i "anoisesrc=d=1.4:color=brown:r=44100:a=1" -af "afade=t=out:st=0:d=1.4:curve=exp,lowpass=f=600" -ar 44100 -ac 2 src/audio/explosion.wav
+```
+Da ich sehr zufrieden mit diesem Ergebnis war habe ich es so übernommen. Danach war beim Thema Sound erstmal eine große Pause. Ohne die Szenen wo die Angreifer explodieren ist es natürlich nicht möglich die Sounds zeitlich abzustimmen. Zu Beginn dachte ich auch es wäre viel schwieriger den Sound auf die Explosion abzustimmen (wie soll ich wissen zu welchem t die Explosion passiert? Was wenn eine Änderung im Code die Zeit verändert?), doch unsere Implementation der Szenen mit Lambda-Funktionen hat es um einiges erleichter. Immer wenn das OneShotEvent für eine Explosion des Angreifers läuft habe ich an die Lambda-Funktion einfach noch den Soundeffekt angehängt. Damit ist der Sound fertig. 
+
+### Shadow Mapping
+Shadow Mapping hatte unterschiedliche Ansätze und Probleme. Zumal war es das erste Thema wo ich wirklich etwas "machen" musste (Audio war ja basierend auf einem bereits verbreiteten Modul) aber auch die Zusammenarbeit hatte hier kleine Störungen gebracht. Auch hier musste ich erstmal auf meine Teamkollegen warten: Ohne Old Man/Mond Objekte gibt es natürlich nichts was einen Schatten werfen kann, oder auf dem der Schatten landen könnte. Als diese Objekte dann vorlagen und Dennis auch bereits die ersten Rays implementiert hat lag auch ein Basic Schatten vor. ![](FirstMoonShadow.png)
+Dies reichte meines Erachtens aber noch nicht daher fing ich an klassisches Shadow Mapping zu implementieren. Nach 1-2 Tagen rumprobieren und vielen nicht funktionierenden Prototypen habe ich mal gegoogled wie denn überhaupt Raytracing, Formelbasierende Geometrie aus dem Shader und Shadow Mapping zusammen funktionieren. Dort ist mir aufgefallen, dass für Shadow Mapping "echte" Geometrie über boolesche Geometrie benötigt wird. Da nur der Old Man mit boolescher Geometrie, also Dreiecksgeometrie, gebaut wird ist das also kaum möglich. Ich hätte sonst die Szene nochmal parallel komplett neu aufbauen müssen und als Meshes triangulisieren nur um diesen Shadow-Map-Pass zu ermöglichen. Ebenso hat die Skala unserer Szene auch ein Problem dargestellt. Da hier alles in Kilometern ist und z.B. zwischen dem Old Man und dem Mond 600km liegen wäre die Berechnung fast unmöglich. (und das ohne uns die Distanz von Sonne->Old Man->Mond anzuschauen!) Daher habe ich zu der Raytracing Alternative gegriffen: Shadow Rays. Von jedem mit Licht getroffenen Punkt schieße ich einen Ray zurück Richtung Lichtquelle. Erreicht er diese _**nicht**_ muss irgendwas den Ray abgefangen haben, ergo hier muss ein Schatten hin. Diese Intersection Logik funktioniert so:
+_src/shaders/raytracing.glsl_
+```glsl
+// Input: pos-Punkt der gecheckt wird normal-Vektor Richtung Licht
+bool inShadow(vec3 pos, vec3 normal) {
+  vec3 shadowOrigin = pos + normal * max(1e-3, length(pos) * 1e-6);
+  // nutzt das bereits etablierte Raytracing Protokoll
+  RaytraceResult result = RaytraceResult(
+      vec3(Inf),
+      vec3(Inf),
+      vec3(0.0),
+      uFar,
+      true
+    );
+  result = raytraceOldman(shadowOrigin, uLightDir, result);
+  result = proceduralScene(shadowOrigin, uLightDir, result);
+  // Wenn ein Ergebnis eine Intersection vor uFar gefunden hat wird True zurückgeben
+  return result.distance < uFar;
+}
+```
+```glsl
+// Input: RaytraceResult 
+vec3 calcLighting(RaytraceResult x) {
+  vec3 intensity;
+  if (x.glowing || uInLinearSpace) {
+    intensity = vec3(1.0);
+  } else {
+    vec3 lighting = vec3(max(dot(x.normal, uLightDir), 0.0));
+    // Überprüft durch inShadow ob etwas im Schatten liegen sollte
+    float shadow = inShadow(x.hitPos, x.normal) ? 0.0 : 1.0;
+    intensity = lighting * shadow;
+  }
+  // Berechnet die wirkliche Farbe die der Schatten haben sollte
+  // Hier ist es eigentlich immer Schwarz, aber sicherheitshalber
+  // ordentlich implementiert. ;)
+  return intensity * x.objectColor;
+}
+```
+Zuletzt verbindet rayTrace() diese Funktionen um ein finales Raytracing Produkt zu implementieren. Diese beiden Funktionen beschränken sich auch nicht nur auf den Old Man, sondern führen auch dazu, dass die Angreifer immer einen Schatten werfen. 
+
+### Volumetrisches Licht
+Vielleicht der schwerste Teil, da hier besonders Probleme in der Planung aufgetreten sind und auch die technischen Schwierigkeiten kein Ende genommen haben. In unserem Plan ging es ja um den "Big Blue Laser" der vom Old Man auf die Sonne geschossen wird, dieser sollte dann volumetrisches Licht ausstrahlen. Zu Beginn war mir schon klar es wird schwer, dass dieses Licht überhaupt sichtbar wird, da alle Quellen zu volumetrischen Licht immer als Beispiel Licht durch ein Fesnter oder durch eine Menge an Hochhäusern schien, und weil die Größe unserer Szene einzelne Lightrays viel zu kleine ausschauen lässt. Erste Versuche ließen auch zu wünschen übrig: ![](Stand3-7_Laser.png) Diese erste Version, von uns liebevoll die "Wurst" getauft, enstand dadurch dass wir nicht richtig kommuniziert haben wie dieser Laser letztendlich aussehen soll. Während ich an eine Art Laserschwert dachte, das eigentlich nur an den Ränden transparent ist, waren die anderen eher für durchsichtigere Strahlen. Da ich auch nicht wusste wie man es anders macht als ein festes Objekt zu kreieren welches dann Licht ausstrahlt kam die Wurst zustande. Andere Versuche führten dazu, dass die Wurst zwar weg war, aber ich dafür nurnoch eine unsichtbare Lichtquelle hatte. Dieses Licht konnte man aber kaum erkennen, da es erstes von der globalen Lichtquelle überstrahlt wurde und zweitens keine sichtbaren Rays produzierte, sondern nur Strahlen auf dem Old Man. Nachdem wir uns als Gruppe dann nochmal ausgetauscht haben musste ich im Prinzip meine ganze bisherige Arbeit scrappen und neu anfangen, jetzt war ein Lichtstrahl ohne feste Mitte gewollt. Dennis und andere Kommilitonen mit denen wir über dieses Projekt geredet haben gaben mir dafür auch direkt einen Tipp: Alpha-Blending.  
+Als ich mich an Alpha-Blending probierte stoß ich direkt auf positiveres Feedback vom Rest der Gruppe, ich war zwar noch nicht die Wurst selbst los, aber immerhin sah man endlich das volumetrische Licht. ![](NichtFesterLaserv1.png) Nach weiterem Rumprobieren mit der Art wie ich den Laser weiter konstruieren will kam ich endlich zu diesem Ergebnis: 
+![](NIchtFesterLasterv2.png)
+Hier haben zwar viele Aspekte noch falsche Werte gehabt (GlowRadius, GlowIntensity und auch Länge des Lasers), aber da das eigentlich alles nur Umschreiben von Variablen war, bin ich trotzdem sehr zufrieden mit dem Ergebnis gewesen. 
+Als letztes "neues" Feature für den Strahl habe ich noch probiert den Laser pulsieren zu lassen. Leider geling mir das garnicht. Alle Versuche dieses Pulsieren zu implementieren führten entweder zu keiner Änderung, oder dazu, dass der Strahl teilweise komplett verschwand oder sogar das Programm crashen lies. Das sehe ich auch noch immer als größtes Versagen des ganzen Projekts, da ich der Meinung bin, dass dieses Pulsieren noch einen riesen visuellen Unterschied gemacht hätte. 
+Die Implementation befindet sich in den Funktionen _src/shaders/raytracing.glsl_, laserSegmentGlow() und laserGlow(). Während laserGlow im Prinzip nur ein Wrapper Funktion die nur überprüft ob der Laser überhaupt aktiv ist, hat laserSegmetGlow den wirklichen Arbeitsaufwand. 
+Zuerst wird berechnet wo der nächste Punkt des Lasers ist um zu verhindern, dass der ganze Stral überprüft werden muss. (103-115) Darauf folgt die Auswahl des Raymarch-Fensters (117-120) und zuletzt wird der ganze Strahl abgetastet und die Farbe wird aufsummiert (122-138). Der senkrechte Abstand zur Laserachse gibt uns die Deckkraft des Lasers (Gauß-Abfall damit je weiter außen desto weicher) und die Farbe (innen weiß, außen blau). Diese Beiträge werden dann mit Front-To-Back Alpha Rendering aufaddiert. Zurückgegeben wird eine RGBA-Farbe die dann in main.cpp weiterverwendet wird.
+Vorherige Versionen haben sich erstmal nur auf den großen Laser beschränkt und waren daher hardcoded mit blauer Farbe und auch LaserIntensity/Glow waren hardcoded. Da wird aber noch die roten Laser für die Angreifer und die grünen Laser für die Verteidigungsangriffe brauchten, hab ich lieber alles durch Parameter geregelt. Damit konnten wir den Laser für diese Angriffe wiederverwenden. 
+
