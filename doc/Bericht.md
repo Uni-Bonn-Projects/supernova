@@ -288,6 +288,14 @@ Framerate nicht konstant, wodurch das Video, je nach Performance des PCs (vermut
 ich), entweder in slowmo und im Zeitraffer läuft. Bei mir tratt ersteres ein, da
 ich ca 100fps hatte, das Video jedoch mit festen 30fps gerendert wurde.
 
+So sollte das Video immer aussehen:
+
+![](./img/video_export_intended.png)
+
+Und so sah es nach einem resize aus:
+
+![](./img/video_export_resize.png)
+
 Ich vermute das erste Problem ließe sich recht leicht beheben. Spontan würde mir
 einfallen, dass man das Fenster einfach auf z.B 2k Auflösung setzt und dann
 weitere Änderungen der Fenstergröße vom Betriebssystem verbieten lässt.
