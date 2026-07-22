@@ -306,6 +306,21 @@ die oben genannten Änderungen in einem so kleinem Zeitraum implementieren konnt
 (Ich hatte nur noch 1 Tag Zeit) Mit dieser Erkenntnis musste ich also leider den
 Versuch des Videoexports abbrechen.
 
+### Schlusswort
+
+Allem in allem bin ich recht zufrieden mit meinen Ergebnissen. Was meine
+Einschätzung der Schwierigkeiten der Features anging, hatte ich wohl auch recht
+behalten. Das Aussehen vom OLDMAN, der Angreifer und den Hintergründe ist dabei
+besser geworden als ich erwartet hatte. Das gilt vorallem für den Linearraum.
+
+Hätte ich aber mehr Zeit gehabt, hätte ich jedoch gerne noch ein wenig an der
+Performance geschraubt. Vorallem im Bereich der CSGs, da diese unser größtes
+Bottleneck sind. Möglicherweise hätte ich hier irgendwie Boundingboxes benutzen,
+oder alles auf dem CPU vorausberechnen lassen können.
+
+Das, was ich aber auf jedenfall mitnehmen werde, ist das Raymarching langsam ist.
+Vorallem wenn man noch CSGs dazu benutzt und alle Werte in den Tausendern hat.
+
 ### Nutzung von KI
 
 Zur Recherche und dem Prototyping von Lösung habe ich unter anderem KI benutzt.
