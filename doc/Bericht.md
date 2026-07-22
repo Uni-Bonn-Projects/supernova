@@ -268,6 +268,44 @@ ganze so aus:
 Die Artefakte die man an den Seiten der Sektionen sieht, kommen vom Shadow
 Mapping und haben nichts mit der Implemention der Booleschen Geometrie zu tun.
 
+### Export als MPEG-4-codierte Videodatei
+
+Als aller letztes habe ich noch versucht unsere Animation als Videodatei zu
+exportieren. Die Idee, welche [hier](https://stackoverflow.com/questions/19070333/saving-the-opengl-context-as-a-video-output)
+wahrscheinlich besser beschrieben ist, war es das fertig gerenderte Bild von
+OpenGL via einen Pixel Buffer zu holen und dann mit ffmpeg bzw. dessen Bibliotheken
+zu einer mp4 Datei zu exportieren. Audio habe ich hierbei erstmal garnicht
+betrachtet, da ich zuerst das Video hinkriegen wollte. Im nachhinein war es eine
+gute Entscheidung.
+
+Den Export an sich habe ich recht schnell umgesetzt bekommen. Nachdem ich den
+Prototypen einigermaßen (aber nicht komplett!) aufgeräumt hatte, konnte ich mich
+den zwei großen, verbliebenen Problemen stellen:
+1. Das Video rendert nur in einer festcodierten Größe (800x600). Beim Vergrößern
+des Programmfensters wird das Video einfach auf die untere linke Ecke gecroppt.
+2. Die Simulation läuft nicht in diskreten Zeitschritten. Dadurch ist die
+Framerate nicht konstant, wodurch das Video, je nach Performance des PCs (vermute
+ich), entweder in slowmo und im Zeitraffer läuft. Bei mir tratt ersteres ein, da
+ich ca 100fps hatte, das Video jedoch mit festen 30fps gerendert wurde.
+
+Ich vermute das erste Problem ließe sich recht leicht beheben. Spontan würde mir
+einfallen, dass man das Fenster einfach auf z.B 2k Auflösung setzt und dann
+weitere Änderungen der Fenstergröße vom Betriebssystem verbieten lässt.
+
+Das zweite Problem sollte eigentlich auch recht "leicht" behebbar sein. Meine
+Idee wäre es hier einfach gewesen mein eigenes Deltatime zu managen, welches ich
+in jedem update() loop um 0,03s (Zeitbudget für 30fps) erhöhe. Danach würde ich
+dann einfach die überschüssige Zeit, welche bei guten PCs sicher da sein wird,
+abwarten. Dadurch hätte ich dann für jeden PC garantiert, dass das Video mit
+flüssigen 30fps gerendert wird.
+
+Mein Problem war aber Zeit. Schließlich hatte ich noch einige Klausuren für die
+ich lernen musste. Zeit war mein Problem, da mein Team die Main Klasse, wo unser
+Render loop liegt, so verkompliziert haben, dass ich nicht mehr ohne weiteres
+die oben genannten Änderungen in einem so kleinem Zeitraum implementieren konnte.
+(Ich hatte nur noch 1 Tag Zeit) Mit dieser Erkenntnis musste ich also leider den
+Versuch des Videoexports abbrechen.
+
 ### Nutzung von KI
 
 Zur Recherche und dem Prototyping von Lösung habe ich unter anderem KI benutzt.
