@@ -43,7 +43,7 @@ Da ich als erstes Zeit gefunden hatte um mit dem Projekt anzufangen, habe ich
 zuerst unsere ganze Devumgebung erstellt. Darunter zählt:
 - das repository erstellen
 - via [devenv](https://devenv.sh/) alle Abhängigkeiten und Skripts definieren,
-damit ich und meine Gruppen alles gleich installiert haben
+damit ich und meine Gruppe alles gleich installiert haben
 - den Code von Aufgabe 4a kopieren
 - und die README erstellen, damit mein Team weiß wie man devenv benutzt
 
@@ -68,7 +68,7 @@ es relativ schwer werden würde zu implementieren, jedoch habe ich nach kurzer
 Google suche folgende Webseite gefunden: <https://iquilezles.org/articles/distfunctions/>
 
 Nachdem ich die folgenden 8 relevanten Zeilen kopiert hatte, konnte ich den
-OLDMAN (das 200km große Raumschiff aus den Perry Rhodan büchern) recht leicht
+OLDMAN (das 200km große Raumschiff aus den Perry Rhodan Büchern) recht leicht
 zusammenbauen und rendern:
 
 ```glsl
@@ -89,7 +89,7 @@ Hoch- und Runterfliegen)
 
 Das Resultat zu diesem Zeitpunkt sah so aus:
 
-![](./raymarching_oldman.png)
+![](./img/raymarching_oldman.png)
 
 Rückblickend waren die 12 Sektionen nicht weit genug draußen. (Man kann hier
 nur die ersten 25km von denen sehen)
@@ -122,16 +122,22 @@ weitergibt.
 
 Nach diesem kleinem Exkurs habe ich noch die Erde und den Mond erstellt (wieder
 algorithmisch erzeugte Kugeln) und sowohl den Stern- als auch Linearraumhintergrund
-(das bunte Wabern) programmiert.
+(das bunte Wabern welches ebenfalls aus den Perry Rhodan Büchern inspiriert ist)
+programmiert. Letzteres benutzt eine mehrfach gestaffelte Perlin Noise Funktion
+welche ich (mit Lizenz) importiert hatte.
 
 Erde und Mond mit Sternenhintergrund:
 
 ![](./img/earth_moon_star_background.png)
 
 Bei der Bewegung der Kamera flackern die Sterne ein bisschen, jedoch konnte ich
-das nie fixen ohne ein statisches Bild in die Skybox zu laden.
+das nie fixen ohne ein statisches Bild in die Skybox zu laden. Grund dafür ist,
+dass ich die `rayDir`'s auf Integer runden muss, damit ich eine Hashfunktion
+benutzen kann, ohne dass sich der Sternenhimmel bei jeder Bewegung komplett
+verändert.
 
-Linearraumhintergrund. Hier leider nur ein statisches Bild davon:
+Linearraumhintergrund. Hier leider nur ein statisches Bild davon. Im Programm
+wabert dieser förmlich:
 
 ![](./img/linear_space.png)
 
@@ -148,12 +154,13 @@ implementiert. Folgender Artikel hat dabei meine Implemention sehr stark inspiri
 Damit ich mich aber erstmal aufs wesentliche konzentrieren konnte, habe ich erst
 eine minimale Version, ohne OLDMAN und was auch immer wir schon gemacht hatten,
 erstellt. In dieser konnte ich dann, via Instanzierung und Offsets in einem
-`GL_ARRAY_BUFFER` folgende Explosionen implementieren.
+`GL_ARRAY_BUFFER` folgende Explosionen implementieren. Die Partikel sind hierbei
+auch gebillboarded, damit man auch wirklich alle jederzeit sieht.
 
 ![](./img/early_explosions.png)
 
 Dies ist aber nur ein Standbild von Partikeln, welche in der Mitte spawnen und
-sich gleichmäßig nach außen ausbreiten, bis sie despawnen. Die Explosion ist
+sich gleichmäßig nach außen ausbreiten, bis sie despawnen. Die Explosion ist hier
 zudem auch gestreckt, was später in der Integrierung, ohne mein zutun, weging.
 
 Wie man sich bestimmt denken kann habe ich dann diese minimale Version, in Form
@@ -167,6 +174,165 @@ Nachdem ich noch zufällige Geschwindigkeiten und eine Kasinomäßige
 folgt aus:
 
 ![](./img/final_explosions.png)
+
+### Der große Rewrite zum Raytracing
+
+Ich hatte während der ganzen Zeit das Gefühl, dass meine Implemenierung der
+Booleschen Geometrie ungenügend war. Immerhin gab dieses Feature einem 60 Punkte!
+Für meine Implementation ca 8 Punkte pro Zeile! Daher habe ich eine Email
+geschrieben und tatsächlich: Meine Implementation war ungenügend. Also habe ich
+mich für ein Abend drangesetzt und all den Raymarching code zu Raytracing
+umgeschrieben. (Der Rewrite war nötig, da vernünfige Boolesche Geometrie zwei
+Meshes miteinander Addiert, Subthrahiert usw. Und dies ging mit Raytracing
+wesentlich leichter und Performanter als mit Raymarching)
+
+Eine große Hilfe war hierbei der Code von Aufgabe 4b, da die grundlegenden Dinge
+hier schon implementiert waren. Danach musste ich jedoch all den alten Code
+rüberportieren, was glücklicherweise zum großteil copy-paste war.
+
+Als erstes implementierte ich hierbei die algorithmisch erzeugte Geometrie. Um
+genauer zu sein, nur die Kugeln, da wir nur Raumschiffe und Himmelskörper
+generieren. Da deren Geometrie recht leicht ist, ist auch die Schnittpunktberechnung
+relativ kurz, wobei ich hier ein paar Versuche gebraucht hatte, bis alles richtig
+aussah. Meistens lag es an irgendwelchen Vorzeichen.
+
+Die Boolesche Geometrie habe ich mir dann aber für später aufgehoben, da der
+Abend schon langsam spät wurde und ich erstmal den Port fertig kriegen wollte.
+Stattdessen habe ich eine einfache, aus Dreiecken bestehende Kugel statt dem
+OLDMAN rendern lassen, sodass Florian und Noah schomal etwas hatten womit sie
+arbeiten konnten.
+
+Danach habe ich Stück für Stück den alten Code in den neuen integriert und dabei
+auch ein wenig aufgeräumt. Traurigerweise, für Noah, musste die bereits gegebene
+Shadow Mapping Logik später nochmal überarbeitet werden, damit Schatten von
+Meshes auf algorithmisch erzeugte Geometrie, und anders rum, geworfen werden
+konnten. Den Code für den großen blauen Laser habe ich aus Zeitgründen auch nicht
+portieren können.
+
+Das Ergebnis zu diesem Zeitpunkt sah dann wie folgt aus.
+
+![](./img/raytracing_rewrite.png)
+
+In der Mitte den OLDMAN Placeholder, links den Mond und ganz klein oben in der
+Mitte und unten rechts zwei Angreifer.
+
+### Boolesche Geometrie
+
+[Meine Einschätzung](./idee/supernova.excalidraw.png) hat sich somit nun doch
+bewahrheitet: Boolesche Geometrie ist mein schwerstes Feature.
+
+Ersteinmal habe ich jedoch, wie üblich, nachrecherchiert und ein paar viele
+Methoden zur Boolesche Geometrie mit Meshes, oder auch Constructive Solid
+Geometry (CSG) gennant, gefunden. Entschieden habe ich mich aber für den Ansatz
+mit den Intervallen. Im Prinzip, das was [hier](https://www.reddit.com/r/opengl/comments/djve71/how_to_create_cuttedhollow_objects_using_ray/)
+beschrieben wird. Der Grund warum ich mich dafür entschieden hab, war, dass
+ich nicht nochmal alles umschreiben wollte, was ich z.B bei der [z-Buffer Methode](http://www.nigels.com/research/egsggh98.pdf)
+hätte tun müssen.
+
+Da der OLDMAN aus 15 Meshes (inkl. der Meshes, die andere subthraieren) besteht
+und ich nicht 3 Uniforms pro Mesh erstellen wollte, was im Code der Aufgabe 4b
+getan wurde, habe ich erstmal mein eigenes Mesh Struct `SNMesh` erstellt, welches
+ich zwischen C++ und den GLSL Shadern via einem Buffer teilen konnte. `SNMesh`
+hat zudem auch ein paar Methoden bekommen, mit denen man das Mesh Skalieren,
+Positionieren und Rotieren kann. Das ganze hat jedoch ein wenig länger gedauert,
+da ich recht oft auf Alignment Probleme gestoßen bin, welche jedes mal mein
+Window Manager / die Grafikarte hard resetted haben, weil der Shader irgendeinen
+Speicher ließt, der verboten ist. Auch hat das Framework hier immer mal wieder
+vergessen, dass die glm Bibliothek installiert war, weswegen ich recht oft den
+build Ordner löschen und alles nochmal neu kompilieren musste. Der fix war am
+Ende ein `alignas(16)` Statement im Struct und die Benutzung von vec4 statt vec3,
+da erstere 16 Byte statt 12 Byte groß sind. Mit vec3 hätte ich sonst die Arrays
+manuell puffern müssen.
+
+Als ich diese Hürde dann aber überstanden habe konnte ich endlich mit dem OLDMAN
+anfangen. Zu allererst habe ich hierfür noch ein Struct für den OLDMAN erstellt,
+welches dann alle nötigen `SNMesh`'s enthielt. Dieses Struct habe ich dann
+ebenfalls via Buffer mit dem Shader geteilt. Die enthaltenen `SNMesh`'s wurden
+bei der Initialisierung dann direkt richtig Skaliert, Positioniert und Rotiert,
+sodass ich mich im späteren CSG Code nurnoch um die Subthraktionen, Additionen usw.
+kümmern musste.
+
+Danach habe ich die Interval-Methode in den Shadern implementiert. Hier habe ich
+jedoch etwas neues über GLSL gelernt: Man kann Daten nicht referenzieren. Das
+hatte zur Folge, dass jedesmal wenn ich ein Mesh über die Funktionsparameter
+übergeben hatte oder ich das Mesh in einer lokalen Variable zwischenspeicherte,
+der GPU mehr als 4 kb kopiert hat, ein Memory overflow hatte und mein Window
+Manager zum Hard Reset der Grafikkarte zwang. Die Lösung hier war es indices in
+den Buffer zu übergeben, sodass die Funktion sich dann die Werte selber holt.
+
+Nachdem ich aber all dies und noch ein paar andere Fehler gefixt hatte sah das
+ganze so aus:
+
+![](./img/csg_done.png)
+
+Die Artefakte die man an den Seiten der Sektionen sieht, kommen vom Shadow
+Mapping und haben nichts mit der Implemention der Booleschen Geometrie zu tun.
+
+### Export als MPEG-4-codierte Videodatei
+
+Als aller letztes habe ich noch versucht unsere Animation als Videodatei zu
+exportieren. Die Idee, welche [hier](https://stackoverflow.com/questions/19070333/saving-the-opengl-context-as-a-video-output)
+wahrscheinlich besser beschrieben ist, war es das fertig gerenderte Bild von
+OpenGL via einen Pixel Buffer zu holen und dann mit ffmpeg bzw. dessen Bibliotheken
+zu einer mp4 Datei zu exportieren. Audio habe ich hierbei erstmal garnicht
+betrachtet, da ich zuerst das Video hinkriegen wollte. Im nachhinein war es eine
+gute Entscheidung.
+
+Den Export an sich habe ich recht schnell umgesetzt bekommen. Nachdem ich den
+Prototypen einigermaßen (aber nicht komplett!) aufgeräumt hatte, konnte ich mich
+den zwei großen, verbliebenen Problemen stellen:
+1. Das Video rendert nur in einer festcodierten Größe (800x600). Beim Vergrößern
+des Programmfensters wird das Video einfach auf die untere linke Ecke gecroppt.
+2. Die Simulation läuft nicht in diskreten Zeitschritten. Dadurch ist die
+Framerate nicht konstant, wodurch das Video, je nach Performance des PCs (vermute
+ich), entweder in slowmo und im Zeitraffer läuft. Bei mir tratt ersteres ein, da
+ich ca 100fps hatte, das Video jedoch mit festen 30fps gerendert wurde.
+
+So sollte das Video immer aussehen:
+
+![](./img/video_export_intended.png)
+
+Und so sah es nach einem resize aus:
+
+![](./img/video_export_resize.png)
+
+Ich vermute das erste Problem ließe sich recht leicht beheben. Spontan würde mir
+einfallen, dass man das Fenster einfach auf z.B 2k Auflösung setzt und dann
+weitere Änderungen der Fenstergröße vom Betriebssystem verbieten lässt.
+
+Das zweite Problem sollte eigentlich auch recht "leicht" behebbar sein. Meine
+Idee wäre es hier einfach gewesen mein eigenes Deltatime zu managen, welches ich
+in jedem update() loop um 0,03s (Zeitbudget für 30fps) erhöhe. Danach würde ich
+dann einfach die überschüssige Zeit, welche bei guten PCs sicher da sein wird,
+abwarten. Dadurch hätte ich dann für jeden PC garantiert, dass das Video mit
+flüssigen 30fps gerendert wird.
+
+Mein Problem war aber Zeit. Schließlich hatte ich noch einige Klausuren für die
+ich lernen musste. Zeit war mein Problem, da mein Team die Main Klasse, wo unser
+Render loop liegt, so verkompliziert haben, dass ich nicht mehr ohne weiteres
+die oben genannten Änderungen in einem so kleinem Zeitraum implementieren konnte.
+(Ich hatte nur noch 1 Tag Zeit) Mit dieser Erkenntnis musste ich also leider den
+Versuch des Videoexports abbrechen.
+
+### Schlusswort
+
+Allem in allem bin ich recht zufrieden mit meinen Ergebnissen. Was meine
+Einschätzung der Schwierigkeiten der Features anging, hatte ich wohl auch recht
+behalten. Das Aussehen vom OLDMAN, der Angreifer und den Hintergründe ist dabei
+besser geworden als ich erwartet hatte. Das gilt vorallem für den Linearraum.
+
+Hätte ich aber mehr Zeit gehabt, hätte ich jedoch gerne noch ein wenig an der
+Performance geschraubt. Vorallem im Bereich der CSGs, da diese unser größtes
+Bottleneck sind. Möglicherweise hätte ich hier irgendwie Boundingboxes benutzen,
+oder alles auf dem CPU vorausberechnen lassen können.
+
+Das, was ich aber auf jedenfall mitnehmen werde, ist das Raymarching langsam ist.
+Vorallem wenn man noch CSGs dazu benutzt und alle Werte in den Tausendern hat.
+
+### Nutzung von KI
+
+Zur Recherche und dem Prototyping von Lösung habe ich unter anderem KI benutzt.
+Die Finalen Ergebnisse wurden jedoch zu 90% von mir programmiert.
 
 ## Noah Neiseke
 
@@ -241,3 +407,4 @@ Als letztes "neues" Feature für den Strahl habe ich noch probiert den Laser pul
 Die Implementation befindet sich in den Funktionen _src/shaders/raytracing.glsl_, laserSegmentGlow() und laserGlow(). Während laserGlow im Prinzip nur ein Wrapper Funktion die nur überprüft ob der Laser überhaupt aktiv ist, hat laserSegmetGlow den wirklichen Arbeitsaufwand. 
 Zuerst wird berechnet wo der nächste Punkt des Lasers ist um zu verhindern, dass der ganze Stral überprüft werden muss. (103-115) Darauf folgt die Auswahl des Raymarch-Fensters (117-120) und zuletzt wird der ganze Strahl abgetastet und die Farbe wird aufsummiert (122-138). Der senkrechte Abstand zur Laserachse gibt uns die Deckkraft des Lasers (Gauß-Abfall damit je weiter außen desto weicher) und die Farbe (innen weiß, außen blau). Diese Beiträge werden dann mit Front-To-Back Alpha Rendering aufaddiert. Zurückgegeben wird eine RGBA-Farbe die dann in main.cpp weiterverwendet wird.
 Vorherige Versionen haben sich erstmal nur auf den großen Laser beschränkt und waren daher hardcoded mit blauer Farbe und auch LaserIntensity/Glow waren hardcoded. Da wird aber noch die roten Laser für die Angreifer und die grünen Laser für die Verteidigungsangriffe brauchten, hab ich lieber alles durch Parameter geregelt. Damit konnten wir den Laser für diese Angriffe wiederverwenden. 
+
