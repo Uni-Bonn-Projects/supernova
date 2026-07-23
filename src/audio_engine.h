@@ -34,6 +34,18 @@ public:
    * Routed through a dedicated SFX group so its volume can be set
    * independently of the music via setSFXVolume(). */
   void playSFX(const std::string &path);
+
+  /** Tap on playSFX(), called with the effect's path and its current group
+   * volume before the sound is played. The video export uses this to mix
+   * every effect into the exported audio track at the timestamp of the frame
+   * that triggered it, without any of the callers having to know an export
+   * is running. */
+  std::function<void(const std::string &path, float volume)> sfxSink;
+
+  /** Suppresses live playback (but not sfxSink). Set while exporting: an
+   * offline render takes far longer than real time, so playing the
+   * cinematic out of the speakers alongside it is just noise. */
+  bool silent = false;
   /** Sets the volume of all SFX (1.0 = unchanged, 0.0 = muted, >1 boosts).
    * Independent of the music volume. */
   void setSFXVolume(float volume);
@@ -55,5 +67,6 @@ private:
   bool _available = false;
   bool _musicLoaded = false;
   bool _sfxGroupInit = false;
+  float _sfxVolume = 1.0f; // mirrors the SFX group volume, for sfxSink
   std::vector<TimedAudioEvent> _schedule;
 };

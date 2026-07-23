@@ -1,6 +1,9 @@
 .cache/
 build/
 
+# Ergebnis von `--export` - viel zu groß fürs Repo
+*.mp4
+
 # Devenv
 .devenv*
 devenv.local.nix

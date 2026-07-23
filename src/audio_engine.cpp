@@ -38,7 +38,9 @@ void AudioEngine::shutdown() {
 }
 
 void AudioEngine::playMusic(const std::string &path, float volume) {
-  if (!_available)
+  // while exporting the score is muxed into the file instead (see
+  // VideoExport::init), so nothing should come out of the speakers here
+  if (silent || !_available)
     return;
   if (_musicLoaded) {
     ma_sound_uninit(&_music);
@@ -67,7 +69,11 @@ void AudioEngine::setMusicVolume(float volume) {
 }
 
 void AudioEngine::playSFX(const std::string &path) {
-  if (!_available)
+  // The sink runs before the availability check on purpose: an export must
+  // still get its sound effects on machines with no working audio device.
+  if (sfxSink)
+    sfxSink(path, _sfxVolume);
+  if (silent || !_available)
     return;
   // Route through the SFX group when available so setSFXVolume() applies;
   // otherwise play straight to the engine endpoint (full volume).
@@ -79,6 +85,7 @@ void AudioEngine::playSFX(const std::string &path) {
 }
 
 void AudioEngine::setSFXVolume(float volume) {
+  _sfxVolume = volume;
   if (_sfxGroupInit)
     ma_sound_group_set_volume(&_sfxGroup, volume);
 }

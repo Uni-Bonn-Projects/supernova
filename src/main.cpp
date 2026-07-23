@@ -129,6 +129,9 @@ struct MainApp : public App {
   float uSunSize = 1000.0f;
 
   float kSFXVolume = 1.25f;
+  // Used both for live playback and for the score muxed into the export, so
+  // the video sounds like what you hear when running the demo interactively.
+  static constexpr float kMusicVolume = 0.35f;
   // Offset from fightPos to the top of the oldman mesh (top_dome is a
   // radius-100 sphere centered on the mesh's own origin, see oldman.cpp),
   // i.e. roughly the muzzle the laser fires from.
@@ -295,7 +298,22 @@ struct MainApp : public App {
   bool keys[(int)Key::MENU];
   float move_speed = 1.0;
 
-  MainApp() : App(800, 600) {
+  // --- offline video export ------------------------------------------
+  // Set by `--export`; the whole cinematic is then rendered into an
+  // offscreen 2160p target on a fixed 1/30s clock (instead of the wall
+  // clock) and the app quits when the timeline ends. Rendering one 4K
+  // raymarched frame takes far longer than 1/30s, so driving the timeline
+  // off App::delta as usual would produce a video that races through the
+  // animation - the fixed step is what makes the export match the intended
+  // pacing, and what keeps the muxed audio in sync with it.
+  bool exporting = false;
+  static constexpr uint32_t kExportWidth = 3840;
+  static constexpr uint32_t kExportHeight = 2160;
+  static constexpr uint32_t kExportFPS = 30;
+
+  MainApp(bool exportVideo, const char *exportFile, uint32_t exportTileSize)
+      : App(800, 600) {
+    exporting = exportVideo;
     mesh.load(Mesh::FULLSCREEN_VERTICES, Mesh::FULLSCREEN_INDICES);
     load_shaders(program, "shaders", "main.vert", "main.frag");
     camera.worldPosition = vec3(300.0f, 200.0f, 300.0f);
@@ -549,9 +567,12 @@ struct MainApp : public App {
     // drives the camera/spawn timeline. kAttackExplosionTime is local to
     // "Kampf" (matches its oneShotEvent above), so it's offset by
     // sceneStartTime() here to land on the same global instant even if
-    // other scenes end up chained in front of Kampf later.
+    // other scenes end up chained in front of Kampf later. An offline export
+    // mutes live playback and muxes exactly the same score and effects into
+    // the file instead, off exactly the same clock.
+    audio.silent = exporting;
     audio.init();
-    audio.playMusic("src/audio/Soundtrack.wav", 0.35f);
+    audio.playMusic("src/audio/Soundtrack.wav", kMusicVolume);
     audio.setSFXVolume(kSFXVolume);
     audio.scheduleSFX(sceneStartTime(kampfSceneIndex) + kAttackExplosionTime,
                       "src/audio/explosion.wav");
@@ -614,7 +635,29 @@ struct MainApp : public App {
     oldman.move(1.0f, fightPos);
     oldman.update(program);
 
-    video_export.init("supernova.mp4", 800, 600, 30).start();
+    if (exporting) {
+      video_export.tile_size = exportTileSize;
+      video_export
+          .init(exportFile, kExportWidth, kExportHeight, kExportFPS,
+                "src/audio/Soundtrack.wav", kMusicVolume)
+          .start();
+      // every playSFX() during the export - the scheduled one as well as the
+      // per-kill ones fired from inside the scenes - lands on the exported
+      // audio track at the timestamp of the frame that triggered it
+      audio.sfxSink = [this](const std::string &path, float volume) {
+        video_export.record_sfx(path, volume);
+      };
+
+      // no overlay in the recording, and the cinematic has to actually run
+      App::imguiEnabled = false;
+      uAutoCam = true;
+      resetTimeline();
+
+      printf("[export] rendering %s: %ux%u @ %ufps, %.1fs of animation, "
+             "tile %u\n",
+             exportFile, kExportWidth, kExportHeight, kExportFPS,
+             sceneStartTime((int)scenes.size()), video_export.tile_size);
+    }
   }
 
   ~MainApp() override {
@@ -623,6 +666,17 @@ struct MainApp : public App {
   }
 
   void render() override {
+    if (exporting) {
+      // Replace the wall clock with the video's own clock, so one rendered
+      // frame is worth exactly one frame of animation no matter how long it
+      // took to produce. Everything time-based downstream (uFlightTime, the
+      // explosion billboards, the aperture falloff) reads App::delta, so
+      // this single override makes the whole animation deterministic.
+      App::delta = 1.0f / (float)kExportFPS;
+      App::time = (float)video_export.encoder.frame_count * App::delta;
+      video_export.begin_frame();
+    }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     program.use();
@@ -670,6 +724,12 @@ struct MainApp : public App {
       if (uFlightTime > sceneStartTime((int)scenes.size())) {
         uAutoCam = false;
         resetTimeline();
+        // an export has nothing left to record once the timeline is through,
+        // so finish the file and quit instead of looping back to scene 0
+        if (exporting) {
+          video_export.stop();
+          App::close();
+        }
       }
     }
 
@@ -726,8 +786,11 @@ struct MainApp : public App {
     }
 
     // We already bind the program in the constructor, so we don't need to bind
-    // it again here
-    mesh.draw();
+    // it again here.
+    // Outside an export this is a plain mesh.draw(); while recording at 2160p
+    // the same draw is split into tiles, because one full-frame raymarch is
+    // long enough to make the driver kill the context (see draw_tiled).
+    video_export.draw_tiled([this]() { mesh.draw(); });
 
     explosions.render(camera, App::delta, camera_changed);
     // focus blur only during explosion
@@ -745,6 +808,14 @@ struct MainApp : public App {
     program.set("uFocusSamples", uFocusSamples);
 
     video_export.update();
+
+    // a 4K raymarched frame is slow enough that a silent terminal looks like
+    // a hang - report roughly once per second of finished video
+    if (exporting && video_export.encoder.frame_count % kExportFPS == 0) {
+      printf("[export] %.1fs / %.1fs\n", video_export.encoder.time(),
+             sceneStartTime((int)scenes.size()));
+      fflush(stdout);
+    }
   }
 
   void buildImGui() override {
@@ -896,19 +967,60 @@ struct MainApp : public App {
   }
 
   void resizeCallback(const vec2 &resolution) override {
-    camera.resize(resolution.x / resolution.y);
-    program.set("uResolution", resolution);
+    // While exporting, the frame is drawn into the offscreen 2160p target,
+    // so the raytracer and the camera have to work at that resolution and
+    // not at the window's - App::run() calls this once on startup with the
+    // window size, which would otherwise squash the recording's aspect
+    // ratio to 4:3.
+    vec2 res = exporting ? vec2(kExportWidth, kExportHeight) : resolution;
+    camera.resize(res.x / res.y);
+    program.set("uResolution", res);
   }
 };
 
 }; // namespace sn
 
-int main() {
+int main(int argc, char **argv) {
 #ifndef NDEBUG
   // cd to parent directory when in debug mode to find resources
   std::filesystem::current_path(
       std::filesystem::path(__FILE__).parent_path().parent_path());
 #endif
-  sn::MainApp app;
+  // `supernova` runs the demo interactively as before; `supernova --export
+  // [file.mp4]` renders the cinematic to an H.264 file with the soundtrack
+  // muxed in and exits when it is done. `--tile N` sets the edge length of
+  // the raymarching tiles (0 = draw each frame in one go); the default suits
+  // this project's integrated Intel GPU, a discrete card wants a much larger
+  // value - see VideoExport::draw_tiled.
+  bool exportVideo = false;
+  const char *exportFile = "supernova.mp4";
+  uint32_t exportTileSize = sn::VideoExport::kDefaultTileSize;
+  bool badUsage = false;
+
+  for (int i = 1; i < argc && !badUsage; i++) {
+    std::string arg = argv[i];
+    if (arg == "--export") {
+      exportVideo = true;
+      if (i + 1 < argc && argv[i + 1][0] != '-')
+        exportFile = argv[++i];
+    } else if (arg == "--tile" && i + 1 < argc) {
+      char *end = nullptr;
+      unsigned long value = strtoul(argv[++i], &end, 10);
+      // reject "--tile abc" and "--tile 12x" instead of silently tiling at 0
+      if (end == argv[i] || *end != '\0')
+        badUsage = true;
+      else
+        exportTileSize = (uint32_t)value;
+    } else {
+      badUsage = true;
+    }
+  }
+
+  if (badUsage) {
+    fprintf(stderr, "usage: %s [--export [output.mp4]] [--tile N]\n", argv[0]);
+    return 1;
+  }
+
+  sn::MainApp app(exportVideo, exportFile, exportTileSize);
   app.run();
 }
